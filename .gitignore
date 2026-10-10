@@ -33,3 +33,9 @@
 
 # Build dir
 /target
+
+# Rust / Canggu
+**/*.rs.bk
+.DS_Store
+zk-keys/
+proof.json

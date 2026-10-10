@@ -1,22 +1,121 @@
-[package]
-name = "canggu"
+[workspace.package]
+authors = ["Canggu Contributors"]
+edition = "2021"
+homepage = "https://github.com/agustinustheo/canggu-blockchain"
+license = "GPL-3.0-only"
+repository = "https://github.com/agustinustheo/canggu-blockchain"
 version = "0.1.0"
-edition = "2024"
 
-[dependencies]
-# Quantum-resistant crypto (like CRYSTALS-Kyber/Dilithium)
-pqcrypto-kyber = "0.8.1"     # Kyber for key exchange
-pqcrypto-dilithium = "0.5.0" # Dilithium for signatures
+[workspace]
+members = [
+	"primitives",
+]
+resolver = "2"
 
-# ZK-SNARKs (zero-knowledge proofs)
-bellman = "0.14.0" # For ZK-SNARK circuits
-rand = "0.9.0"     # Randomness for proofs
+[workspace.lints.rust]
+suspicious_double_ref_op = { level = "allow", priority = 2 }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(substrate_runtime)"] }
 
-# GPU support (CUDA bindings) or we can use cudarc (researching on that)
-# https://rust-gpu.github.io/Rust-CUDA/guide/getting_started.html
-# cust = "0.3.2"
-cuda_std = "0.2.2" # Basic CUDA integration
+[workspace.lints.clippy]
+all = { level = "allow", priority = 0 }
+correctness = { level = "warn", priority = 1 }
+complexity = { level = "warn", priority = 1 }
 
-# Blockchain basics
-serde = { version = "1.0", features = ["derive"] } # Serialization
-sha2 = "0.10"                                      # Hashing (SHA-256 fallback)
+[workspace.dependencies]
+# Local crates
+canggu-primitives = { path = "primitives", default-features = false }
+canggu-zk = { path = "zk" }
+canggu-runtime = { path = "runtime", default-features = false }
+canggu-dag-ordering = { path = "pallets/dag-ordering", default-features = false }
+pallet-parallel-payroll = { path = "pallets/parallel-payroll", default-features = false }
+pallet-zk-verifier = { path = "pallets/zk-verifier", default-features = false }
+
+# General
+anyhow = "1"
+clap = { version = "4.5.13" }
+codec = { version = "3.7.5", default-features = false, package = "parity-scale-codec" }
+futures = { version = "0.3.31" }
+hex = { version = "0.4.3", default-features = false }
+jsonrpsee = { version = "0.24.11" }
+log = { version = "0.4.22", default-features = false }
+rand = "0.8"
+rayon = "1.10"
+scale-info = { version = "2.11.6", default-features = false }
+serde = { version = "1.0.214", default-features = false }
+serde_json = { version = "1.0.132", default-features = false }
+ureq = { version = "2.12", default-features = false, features = ["json"] }
+
+# Post-quantum signatures (FIPS 204 / CRYSTALS-Dilithium)
+ml-dsa = { version = "0.1.1", default-features = false }
+
+# zk-SNARKs (Groth16 over BLS12-381)
+ark-bls12-381 = { version = "0.6.0", default-features = false }
+ark-ff = { version = "0.6.0", default-features = false }
+ark-groth16 = { version = "0.6.0", default-features = false }
+ark-relations = { version = "0.6.0", default-features = false }
+ark-serialize = { version = "0.6.0", default-features = false }
+ark-snark = { version = "0.6.0", default-features = false }
+ark-std = { version = "0.6.0", default-features = false }
+
+# Polkadot SDK, polkadot-stable2609 (umbrella crate 2609.0.0)
+frame-benchmarking = { version = "50.0.0", default-features = false }
+frame-benchmarking-cli = { version = "61.0.0", default-features = false }
+frame-executive = { version = "49.0.0", default-features = false }
+frame-metadata-hash-extension = { version = "0.17.0", default-features = false }
+frame-support = { version = "49.0.0", default-features = false }
+frame-system = { version = "49.0.0", default-features = false }
+frame-system-benchmarking = { version = "50.0.0", default-features = false }
+frame-system-rpc-runtime-api = { version = "44.0.0", default-features = false }
+frame-try-runtime = { version = "0.55.0", default-features = false }
+pallet-aura = { version = "49.0.0", default-features = false }
+pallet-balances = { version = "51.0.0", default-features = false }
+pallet-grandpa = { version = "50.0.0", default-features = false }
+pallet-sudo = { version = "50.0.0", default-features = false }
+pallet-timestamp = { version = "49.0.0", default-features = false }
+pallet-transaction-payment = { version = "50.0.0", default-features = false }
+pallet-transaction-payment-rpc = { version = "53.0.0", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { version = "50.0.0", default-features = false }
+sc-basic-authorship = { version = "0.57.0", default-features = false }
+sc-cli = { version = "0.63.0", default-features = false }
+sc-client-api = { version = "48.0.0", default-features = false }
+sc-consensus = { version = "0.59.0", default-features = false }
+sc-consensus-aura = { version = "0.60.0", default-features = false }
+sc-consensus-grandpa = { version = "0.45.0", default-features = false }
+sc-executor = { version = "0.51.0", default-features = false }
+sc-network = { version = "0.60.0", default-features = false }
+sc-offchain = { version = "55.0.0", default-features = false }
+sc-service = { version = "0.62.0", default-features = false }
+sc-telemetry = { version = "34.0.0", default-features = false }
+sc-transaction-pool = { version = "48.0.0", default-features = false }
+sc-transaction-pool-api = { version = "47.0.0", default-features = false }
+sp-api = { version = "44.0.0", default-features = false }
+sp-block-builder = { version = "44.0.0", default-features = false }
+sp-blockchain = { version = "47.0.0", default-features = false }
+sp-consensus-aura = { version = "0.50.0", default-features = false }
+sp-consensus-grandpa = { version = "31.0.0", default-features = false }
+sp-core = { version = "43.0.0", default-features = false }
+sp-genesis-builder = { version = "0.25.0", default-features = false }
+sp-inherents = { version = "44.0.0", default-features = false }
+sp-io = { version = "49.0.0", default-features = false }
+sp-keyring = { version = "49.0.0", default-features = false }
+sp-offchain = { version = "44.0.0", default-features = false }
+sp-runtime = { version = "49.0.0", default-features = false }
+sp-crypto-hashing = { version = "0.1.0", default-features = false }
+sp-runtime-interface = { version = "37.0.1", default-features = false }
+sp-session = { version = "46.0.0", default-features = false }
+sp-storage = { version = "25.0.0", default-features = false }
+sp-timestamp = { version = "44.0.0", default-features = false }
+sp-transaction-pool = { version = "44.0.0", default-features = false }
+sp-version = { version = "47.0.0", default-features = false }
+substrate-build-script-utils = { version = "11.0.3", default-features = false }
+substrate-frame-rpc-system = { version = "55.0.0", default-features = false }
+substrate-wasm-builder = { version = "35.0.0", default-features = false }
+
+[profile.release]
+# Runtime requires unwinding.
+panic = "unwind"
+opt-level = 3
+
+# Heavy cryptography is slow in debug builds; optimise it even in dev/test profiles.
+[profile.dev.package."*"]
+opt-level = 2

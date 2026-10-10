@@ -1,0 +1,6 @@
+[toolchain]
+# Matches the toolchain used by polkadot-sdk CI for polkadot-stable2609.
+channel = "1.93.0"
+components = ["cargo", "clippy", "rust-src", "rustfmt"]
+targets = ["wasm32-unknown-unknown", "wasm32v1-none"]
+profile = "minimal"
