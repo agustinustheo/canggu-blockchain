@@ -1,0 +1,22 @@
+[package]
+name = "canggu-zk"
+description = "Canggu demo zk-SNARK circuits (Groth16 / BLS12-381): private payroll commitment."
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+# std only: proving happens off-chain (CLI / prover nodes), never in the runtime.
+[dependencies]
+ark-bls12-381 = { workspace = true, features = ["curve", "std"] }
+ark-ff = { workspace = true, features = ["std"] }
+ark-groth16 = { workspace = true, features = ["std", "parallel"] }
+ark-relations = { workspace = true, features = ["std"] }
+ark-serialize = { workspace = true, features = ["std"] }
+ark-snark = { workspace = true }
+ark-std = { workspace = true, features = ["std"] }
+canggu-primitives = { workspace = true, features = ["std"] }
+sp-crypto-hashing = { workspace = true, features = ["std"] }

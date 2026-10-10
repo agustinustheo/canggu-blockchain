@@ -9,6 +9,7 @@ version = "0.1.0"
 [workspace]
 members = [
 	"primitives",
+	"zk",
 ]
 resolver = "2"
 
