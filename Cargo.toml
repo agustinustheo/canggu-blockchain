@@ -12,6 +12,7 @@ members = [
 	"zk",
 	"pallets/dag-ordering",
 	"pallets/zk-verifier",
+	"pallets/parallel-payroll",
 ]
 resolver = "2"
 

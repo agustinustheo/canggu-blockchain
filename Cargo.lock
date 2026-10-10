@@ -2557,6 +2557,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-parallel-payroll"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-transaction-payment"
 version = "50.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
