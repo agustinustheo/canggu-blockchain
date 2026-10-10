@@ -2574,6 +2574,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-zk-verifier"
+version = "0.1.0"
+dependencies = [
+ "ark-std 0.6.0",
+ "canggu-primitives",
+ "canggu-zk",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "parity-scale-codec"
 version = "3.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,37 @@
+[package]
+name = "pallet-zk-verifier"
+description = "Verify Groth16/BLS12-381 proofs on-chain through a native host function."
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
+canggu-primitives = { workspace = true }
+
+[dev-dependencies]
+pallet-balances = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+canggu-zk = { workspace = true }
+ark-std = { workspace = true, features = ["std"] }
+
+[features]
+default = ["std"]
+std = [
+	"canggu-primitives/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-runtime/std",
+]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]
