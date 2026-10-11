@@ -1087,6 +1087,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "canggu-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "canggu-dag-ordering",
+ "canggu-primitives",
+ "canggu-runtime",
+ "canggu-zk",
+ "clap",
+ "frame-metadata-hash-extension",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "pallet-balances",
+ "pallet-parallel-payroll",
+ "pallet-transaction-payment",
+ "pallet-zk-verifier",
+ "parity-scale-codec",
+ "rand 0.8.8",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+ "ureq",
+]
+
+[[package]]
 name = "canggu-dag-ordering"
 version = "0.1.0"
 dependencies = [
@@ -11060,6 +11086,20 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+
+[[package]]
+name = "ureq"
+version = "2.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
+dependencies = [
+ "base64 0.22.1",
+ "log",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "url",
+]
 
 [[package]]
 name = "url"

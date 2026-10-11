@@ -1,0 +1,38 @@
+[package]
+name = "canggu-cli"
+description = "Canggu command line wallet: ML-DSA-65 keys, DAG-ordered transfers, payroll and zk proofs."
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "canggu"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { features = ["derive"], workspace = true }
+codec = { workspace = true, features = ["std"] }
+hex = { workspace = true, features = ["std"] }
+rand = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
+ureq = { workspace = true }
+
+canggu-dag-ordering = { workspace = true, features = ["std"] }
+canggu-primitives = { workspace = true, features = ["std"] }
+canggu-runtime = { workspace = true, features = ["std"] }
+canggu-zk = { workspace = true }
+frame-metadata-hash-extension = { workspace = true, features = ["std"] }
+frame-support = { workspace = true, features = ["std"] }
+frame-system = { workspace = true, features = ["std"] }
+pallet-transaction-payment = { workspace = true, features = ["std"] }
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-parallel-payroll = { workspace = true, features = ["std"] }
+pallet-zk-verifier = { workspace = true, features = ["std"] }
+sp-core = { workspace = true, features = ["std"] }
+sp-runtime = { workspace = true, features = ["std"] }
