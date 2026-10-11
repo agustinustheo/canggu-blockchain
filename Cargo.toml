@@ -14,6 +14,7 @@ members = [
 	"pallets/zk-verifier",
 	"pallets/parallel-payroll",
 	"runtime",
+	"node",
 ]
 resolver = "2"
 
