@@ -9,13 +9,13 @@ version = "0.1.0"
 [workspace]
 members = [
 	"cli",
+	"node",
+	"pallets/dag-ordering",
+	"pallets/parallel-payroll",
+	"pallets/zk-verifier",
 	"primitives",
 	"zk",
-	"pallets/dag-ordering",
-	"pallets/zk-verifier",
-	"pallets/parallel-payroll",
 	"runtime",
-	"node",
 ]
 resolver = "2"
 
