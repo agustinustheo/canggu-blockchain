@@ -1,34 +1,30 @@
-# Use an official Rust base image (Debian-based)
-FROM rust:1.85-slim AS builder
+# Builder: Parity's CI image ships the Rust toolchain, protoc, clang and the Wasm targets that
+# Polkadot SDK builds need.
+FROM docker.io/paritytech/ci-unified:latest AS builder
 
-# Install build essentials and dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /canggu
+COPY . /canggu
 
-# Set working directory
-WORKDIR /usr/src/canggu
+RUN cargo fetch --locked
+RUN cargo build --locked --release -p canggu-node -p canggu-cli
 
-# Copy project files
-COPY Cargo.toml Cargo.lock ./
-COPY src ./src
+# Final stage: slim runtime image with the node and the `canggu` wallet CLI.
+FROM docker.io/parity/base-bin:latest
 
-# Build the project with optimizations
-RUN cargo build --release
+COPY --from=builder /canggu/target/release/canggu-node /usr/local/bin
+COPY --from=builder /canggu/target/release/canggu /usr/local/bin
 
-# Final stage: slim runtime image
-# Using debian for final stage as its a lighter image compared to rust's official image
-FROM debian:bookworm-slim
+USER root
+RUN useradd -m -u 1001 -U -s /bin/sh -d /canggu canggu && \
+	mkdir -p /data /canggu/.local/share && \
+	chown -R canggu:canggu /data && \
+	ln -s /data /canggu/.local/share/canggu-node && \
+	/usr/local/bin/canggu-node --version
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/*
+USER canggu
 
-# Copy the compiled binary from builder
-COPY --from=builder /usr/src/canggu/target/release/canggu /usr/local/bin/canggu
+EXPOSE 30333 9944 9615
+VOLUME ["/data"]
 
-# Set entrypoint
-ENTRYPOINT ["canggu"]
+ENTRYPOINT ["/usr/local/bin/canggu-node"]
+CMD ["--dev", "--rpc-external"]
