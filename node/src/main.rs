@@ -1,6 +1,7 @@
 //! Substrate Node Template CLI library.
 #![warn(missing_docs)]
 
+mod accel;
 mod chain_spec;
 mod cli;
 mod command;

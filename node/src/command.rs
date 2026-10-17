@@ -46,6 +46,7 @@ impl SubstrateCli for Cli {
 /// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
 	let cli = Cli::from_args();
+	crate::accel::install(cli.crypto_backend)?;
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
@@ -110,6 +111,7 @@ pub fn run() -> sc_cli::Result<()> {
 		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
+			crate::accel::log_selected();
 			runner.run_node_until_exit(|config| async move {
 				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p => service::new_full::<

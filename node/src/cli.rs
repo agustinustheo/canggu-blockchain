@@ -5,6 +5,12 @@ pub struct Cli {
 
 	#[clap(flatten)]
 	pub run: sc_cli::RunCmd,
+
+	/// Where the `ml_dsa_65_batch_verify` host function runs. Every backend returns identical
+	/// verdicts (the CPU reference defines them), so nodes with different backends stay in
+	/// consensus.
+	#[arg(long, value_enum, default_value_t = crate::accel::Backend::CpuParallel, global = true)]
+	pub crypto_backend: crate::accel::Backend,
 }
 
 #[derive(Debug, clap::Subcommand)]
