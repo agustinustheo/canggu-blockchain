@@ -22,8 +22,13 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Lazy, Verify},
 	AccountId32,
 };
-use sp_runtime_interface::{pass_by::PassFatPointerAndRead, runtime_interface};
+use sp_runtime_interface::{
+	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndRead},
+	runtime_interface,
+};
 
+#[cfg(feature = "std")]
+pub mod accel;
 #[cfg(feature = "std")]
 pub mod keyring;
 #[cfg(feature = "std")]
@@ -181,6 +186,20 @@ pub trait CangguCrypto {
 		signature: PassFatPointerAndRead<&[u8]>,
 	) -> bool {
 		crate::keyring::verify(public, msg, signature)
+	}
+
+	/// Verify a batch of `(public key, message, signature)` ML-DSA-65 triples with context
+	/// [`ML_DSA_CONTEXT`], returning one verdict per item.
+	///
+	/// This is the host function a node may accelerate: it hands the whole batch to the backend
+	/// installed with [`accel::set_backend`] (multi-core CPU by default, Apple Metal with
+	/// `canggu-node --crypto-backend metal`). Every backend must agree with the CPU reference.
+	fn ml_dsa_65_batch_verify(
+		items: PassFatPointerAndDecode<
+			alloc::vec::Vec<(alloc::vec::Vec<u8>, alloc::vec::Vec<u8>, alloc::vec::Vec<u8>)>,
+		>,
+	) -> AllocateAndReturnByCodec<alloc::vec::Vec<bool>> {
+		crate::accel::verify_batch(&items, ML_DSA_CONTEXT)
 	}
 
 	/// Verify a Groth16 proof on BLS12-381.

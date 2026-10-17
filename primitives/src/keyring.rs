@@ -66,9 +66,14 @@ impl MlDsa65Pair {
 
 /// Reference (CPU) ML-DSA-65 verification. Backs the `ml_dsa_65_verify` host function.
 pub fn verify(public: &[u8], msg: &[u8], signature: &[u8]) -> bool {
+	verify_with_context(public, msg, signature, ML_DSA_CONTEXT)
+}
+
+/// Reference ML-DSA-65 verification with an explicit FIPS 204 context string.
+pub fn verify_with_context(public: &[u8], msg: &[u8], signature: &[u8], ctx: &[u8]) -> bool {
 	let Ok(public) = EncodedVerifyingKey::<MlDsa65>::try_from(public) else { return false };
 	let Ok(signature) = Signature::<MlDsa65>::try_from(signature) else { return false };
-	VerifyingKey::<MlDsa65>::decode(&public).verify_with_context(msg, ML_DSA_CONTEXT, &signature)
+	VerifyingKey::<MlDsa65>::decode(&public).verify_with_context(msg, ctx, &signature)
 }
 
 /// Development key pair for a well-known name (`Alice`, `Bob`...).

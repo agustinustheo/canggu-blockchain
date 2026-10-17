@@ -23,7 +23,9 @@ ark-bls12-381 = { workspace = true, optional = true, features = ["curve"] }
 ark-ff = { workspace = true, optional = true }
 ark-groth16 = { workspace = true, optional = true }
 ark-serialize = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
 ml-dsa = { workspace = true, optional = true, features = ["alloc"] }
+rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
 hex = { workspace = true, features = ["std"] }
@@ -36,7 +38,9 @@ std = [
 	"ark-groth16/std",
 	"ark-serialize/std",
 	"codec/std",
+	"log/std",
 	"ml-dsa",
+	"rayon",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
