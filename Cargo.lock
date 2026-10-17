@@ -6091,6 +6091,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-pq-intents"
+version = "0.1.0"
+dependencies = [
+ "canggu-primitives",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-session"
 version = "50.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

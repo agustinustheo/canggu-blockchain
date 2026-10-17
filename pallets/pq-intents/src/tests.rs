@@ -1,0 +1,144 @@
+use crate::{self as pallet_pq_intents, *};
+use canggu_primitives::keyring::{self, MlDsa65Pair};
+use frame_support::{assert_noop, assert_ok, derive_impl, traits::ConstU32, BoundedVec};
+use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+
+type Block = frame_system::mocking::MockBlock<Test>;
+
+frame_support::construct_runtime!(
+	pub enum Test {
+		System: frame_system,
+		Balances: pallet_balances,
+		Intents: pallet_pq_intents,
+	}
+);
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Test {
+	type Block = Block;
+	type AccountId = AccountId32;
+	type Lookup = IdentityLookup<AccountId32>;
+	type AccountData = pallet_balances::AccountData<u64>;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type AccountStore = System;
+}
+
+impl Config for Test {
+	type Currency = Balances;
+	type MaxIntents = ConstU32<64>;
+}
+
+fn alice() -> MlDsa65Pair {
+	keyring::dev("Alice")
+}
+fn bob() -> MlDsa65Pair {
+	keyring::dev("Bob")
+}
+fn relayer() -> AccountId32 {
+	keyring::dev("Eve").account_id()
+}
+
+fn new_test_ext() -> sp_io::TestExternalities {
+	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![
+			(alice().account_id(), 1_000),
+			(bob().account_id(), 1_000),
+			(relayer(), 1_000),
+		],
+		..Default::default()
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
+	let mut ext: sp_io::TestExternalities = storage.into();
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+fn sign(pair: &MlDsa65Pair, to: &MlDsa65Pair, amount: u64, nonce: u32) -> SignedIntentOf<Test> {
+	let intent = Intent { to: to.account_id(), amount, nonce };
+	let genesis = System::block_hash(0);
+	SignedIntent {
+		public: pair.public(),
+		signature: pair.sign_raw(&signing_payload(&genesis, &intent)),
+		intent,
+	}
+}
+
+fn submit(intents: Vec<SignedIntentOf<Test>>) -> frame_support::dispatch::DispatchResult {
+	Intents::submit_intents(
+		RuntimeOrigin::signed(relayer()),
+		BoundedVec::try_from(intents).unwrap(),
+	)
+}
+
+#[test]
+fn batch_of_valid_intents_executes() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(submit(vec![
+			sign(&alice(), &bob(), 100, 0),
+			sign(&alice(), &bob(), 50, 1),
+			sign(&bob(), &alice(), 10, 0),
+		]));
+		assert_eq!(Balances::free_balance(alice().account_id()), 1_000 - 150 + 10);
+		assert_eq!(Balances::free_balance(bob().account_id()), 1_000 + 150 - 10);
+		assert_eq!(Nonces::<Test>::get(alice().account_id()), 2);
+		System::assert_last_event(
+			Event::BatchExecuted { relayer: relayer(), executed: 3, rejected: 0 }.into(),
+		);
+	});
+}
+
+#[test]
+fn bad_intents_are_rejected_individually() {
+	new_test_ext().execute_with(|| {
+		let mut forged = sign(&alice(), &bob(), 100, 0);
+		forged.intent.amount = 900; // signature no longer matches
+		let replay = sign(&bob(), &alice(), 10, 0);
+		let too_much = sign(&bob(), &alice(), 5_000, 1);
+
+		assert_ok!(submit(vec![forged, replay.clone(), replay, too_much]));
+		System::assert_has_event(
+			Event::IntentRejected { index: 0, reason: RejectReason::BadSignature }.into(),
+		);
+		System::assert_has_event(
+			Event::IntentRejected { index: 2, reason: RejectReason::BadNonce }.into(),
+		);
+		System::assert_has_event(
+			Event::IntentRejected { index: 3, reason: RejectReason::TransferFailed }.into(),
+		);
+		System::assert_last_event(
+			Event::BatchExecuted { relayer: relayer(), executed: 1, rejected: 3 }.into(),
+		);
+		// The failed transfer did not consume Bob's nonce.
+		assert_eq!(Nonces::<Test>::get(bob().account_id()), 1);
+		assert_eq!(Balances::free_balance(alice().account_id()), 1_010);
+	});
+}
+
+#[test]
+fn intents_are_bound_to_the_chain() {
+	new_test_ext().execute_with(|| {
+		let intent = Intent { to: bob().account_id(), amount: 1, nonce: 0 };
+		let other_chain = sp_core::H256::repeat_byte(7);
+		let signed = SignedIntent {
+			public: alice().public(),
+			signature: alice().sign_raw(&signing_payload(&other_chain, &intent)),
+			intent,
+		};
+		assert_ok!(submit(vec![signed]));
+		System::assert_has_event(
+			Event::IntentRejected { index: 0, reason: RejectReason::BadSignature }.into(),
+		);
+	});
+}
+
+#[test]
+fn empty_batch_is_an_error() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(submit(vec![]), Error::<Test>::NoIntents);
+	});
+}
