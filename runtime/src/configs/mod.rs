@@ -155,3 +155,9 @@ impl pallet_parallel_payroll::Config for Runtime {
 	type Currency = Balances;
 	type MaxRecipients = ConstU32<1024>;
 }
+
+impl pallet_pq_intents::Config for Runtime {
+	type Currency = Balances;
+	// ~5.3 kB per signed intent: 640 of them fit in the normal-class share of a 5 MiB block.
+	type MaxIntents = ConstU32<640>;
+}

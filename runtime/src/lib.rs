@@ -219,4 +219,7 @@ mod runtime {
 
 	#[runtime::pallet_index(8)]
 	pub type Payroll = pallet_parallel_payroll;
+
+	#[runtime::pallet_index(9)]
+	pub type Intents = pallet_pq_intents;
 }
