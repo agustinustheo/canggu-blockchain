@@ -58,7 +58,7 @@ impl Included {
 
 pub struct Chain {
 	pub rpc: Rpc,
-	genesis: H256,
+	pub genesis: H256,
 	spec_version: u32,
 	tx_version: u32,
 }

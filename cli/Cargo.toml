@@ -20,6 +20,7 @@ clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
 rand = { workspace = true }
+rayon = { workspace = true }
 serde_json = { workspace = true, features = ["std"] }
 ureq = { workspace = true }
 
@@ -33,6 +34,7 @@ frame-system = { workspace = true, features = ["std"] }
 pallet-transaction-payment = { workspace = true, features = ["std"] }
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-parallel-payroll = { workspace = true, features = ["std"] }
+pallet-pq-intents = { workspace = true, features = ["std"] }
 pallet-zk-verifier = { workspace = true, features = ["std"] }
 sp-core = { workspace = true, features = ["std"] }
 sp-runtime = { workspace = true, features = ["std"] }

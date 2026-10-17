@@ -96,6 +96,21 @@ enum Command {
 		#[arg(long, default_value = "proof.json")]
 		proof: PathBuf,
 	},
+	/// Sign `count` transfer intents with fresh ML-DSA keys and submit them as one batch. The
+	/// runtime verifies all signatures in a single host call (see the node's `⚡` log line).
+	Intents {
+		/// Relayer that submits the batch and pays its fee.
+		#[arg(long, default_value = "//Alice")]
+		relayer: String,
+		#[arg(long, default_value_t = 256)]
+		count: usize,
+		/// Number of distinct signing accounts (funded automatically).
+		#[arg(long, default_value_t = 64)]
+		senders: usize,
+		/// Tamper with this many intents after signing; they must be rejected.
+		#[arg(long, default_value_t = 0)]
+		forge: usize,
+	},
 	/// Run an end-to-end tour of every Canggu feature against a `--dev` node.
 	Demo,
 	/// Measure the native cryptography (no node needed).
@@ -199,6 +214,9 @@ fn main() -> Result<()> {
 			let call = submit_proof_call(&vk, inputs, proof)?;
 			let nonce = chain.rpc.next_nonce(&signer.account_id())?;
 			report(&chain.submit_and_wait(&chain.sign(&signer, call, nonce, vec![], 0)?)?)
+		},
+		Command::Intents { relayer, count, senders, forge } => {
+			intents(&Chain::connect(&cli.url)?, &pair(&relayer)?, count, senders, forge).map(|_| ())
 		},
 		Command::Demo => demo(&Chain::connect(&cli.url)?),
 		Command::Bench { recipients } => bench(&recipients),
@@ -435,6 +453,10 @@ fn demo(chain: &Chain) -> Result<()> {
 	let failure = included.failure().context("a proof for a forged total was accepted")?;
 	println!("  same proof, claimed total + 1: rejected with {failure}");
 
+	step("6. Post-quantum intents: one batch, one (GPU-accelerable) host call");
+	let (executed, rejected) = intents(chain, &alice, 64, 16, 2)?;
+	ensure!((executed, rejected) == (62, 2), "unexpected batch outcome");
+
 	println!("\nAll Canggu features exercised successfully.");
 	Ok(())
 }
@@ -487,4 +509,123 @@ fn bench(recipients: &[usize]) -> Result<()> {
 		);
 	}
 	Ok(())
+}
+
+/// Sign and submit a batch of intents. Returns `(executed, rejected)`.
+fn intents(
+	chain: &Chain,
+	relayer: &MlDsa65Pair,
+	count: usize,
+	senders: usize,
+	forge: usize,
+) -> Result<(u32, u32)> {
+	use pallet_pq_intents::{Intent, SignedIntent};
+	use rayon::prelude::*;
+	ensure!(senders > 0 && count > 0, "need at least one sender and one intent");
+	ensure!(forge <= count.min(senders), "can forge at most min(count, senders) intents");
+
+	let senders: Vec<MlDsa65Pair> = (0..senders)
+		.map(|i| MlDsa65Pair::from_phrase(&format!("//intent-sender/{i}")))
+		.collect();
+	let unfunded: Vec<(AccountId, Balance)> = senders
+		.iter()
+		.map(|s| Ok((s.account_id(), chain.free_balance(&s.account_id())?)))
+		.collect::<Result<Vec<_>>>()?
+		.into_iter()
+		.filter(|(_, balance)| *balance < chain::UNIT)
+		.map(|(who, _)| (who, 10 * chain::UNIT))
+		.collect();
+	if !unfunded.is_empty() {
+		println!("  funding {} sender accounts with one payroll batch", unfunded.len());
+		let nonce = chain.rpc.next_nonce(&relayer.account_id())?;
+		report_quiet(&chain.submit_and_wait(&chain.sign(
+			relayer,
+			payroll_call(unfunded)?,
+			nonce,
+			vec![],
+			0,
+		)?)?)?;
+	}
+
+	let mut next_nonce: Vec<u32> = senders
+		.iter()
+		.map(|s| {
+			let key = pallet_pq_intents::Nonces::<Runtime>::hashed_key_for(s.account_id());
+			Ok(chain.rpc.storage::<u32>(&key, None)?.unwrap_or_default())
+		})
+		.collect::<Result<_>>()?;
+	let plan: Vec<(usize, Intent<AccountId, Balance>)> = (0..count)
+		.map(|i| {
+			let s = i % senders.len();
+			let to = senders[(i + 1) % senders.len()].account_id();
+			let nonce = next_nonce[s];
+			next_nonce[s] += 1;
+			(s, Intent { to, amount: chain::UNIT / 1_000, nonce })
+		})
+		.collect();
+
+	let started = Instant::now();
+	let genesis = chain.genesis;
+	let mut batch: Vec<SignedIntent<AccountId, Balance>> = plan
+		.into_par_iter()
+		.map(|(s, intent)| SignedIntent {
+			public: senders[s].public(),
+			signature: senders[s].sign_raw(&pallet_pq_intents::signing_payload(&genesis, &intent)),
+			intent,
+		})
+		.collect();
+	println!(
+		"  signed {count} intents with {} ML-DSA-65 keys in {:.2?}",
+		senders.len(),
+		started.elapsed()
+	);
+	// Tamper after signing. Forge the *last* intent of distinct senders so that no later intent of
+	// the same sender is rejected for a nonce gap.
+	for intent in batch.iter_mut().rev().take(forge) {
+		intent.intent.amount += 1;
+	}
+
+	let call = RuntimeCall::Intents(pallet_pq_intents::Call::submit_intents {
+		intents: batch
+			.try_into()
+			.map_err(|_| anyhow::anyhow!("too many intents for one batch"))?,
+	});
+	let nonce = chain.rpc.next_nonce(&relayer.account_id())?;
+	let xt = chain.sign(relayer, call, nonce, vec![], 0)?;
+	println!(
+		"  relayer submits one {:.2} MB extrinsic; the node's log shows which backend verified it",
+		xt.encoded_size() as f64 / 1e6
+	);
+	let included = chain.submit_and_wait(&xt)?;
+	if let Some(failure) = included.failure() {
+		bail!("batch failed: {failure}");
+	}
+	let mut reasons = std::collections::BTreeMap::<String, u32>::new();
+	let mut outcome = None;
+	for event in &included.events {
+		match event {
+			RuntimeEvent::Intents(pallet_pq_intents::Event::IntentRejected { reason, .. }) => {
+				*reasons.entry(format!("{reason:?}")).or_default() += 1
+			},
+			RuntimeEvent::Intents(pallet_pq_intents::Event::BatchExecuted {
+				executed,
+				rejected,
+				..
+			}) => outcome = Some((*executed, *rejected)),
+			_ => {},
+		}
+	}
+	let (executed, rejected) = outcome.context("no BatchExecuted event")?;
+	println!(
+		"  block #{}: {executed} intents executed, {rejected} rejected {reasons:?}",
+		included.block_number
+	);
+	Ok((executed, rejected))
+}
+
+fn report_quiet(included: &Included) -> Result<()> {
+	match included.failure() {
+		Some(failure) => bail!("dispatch failed: {failure}"),
+		None => Ok(()),
+	}
 }
