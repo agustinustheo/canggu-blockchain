@@ -46,7 +46,7 @@ impl SubstrateCli for Cli {
 /// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
 	let cli = Cli::from_args();
-	crate::accel::install(cli.crypto_backend)?;
+	crate::accel::install(cli.crypto_backend, cli.metal_min_batch)?;
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),

@@ -11,6 +11,11 @@ pub struct Cli {
 	/// consensus.
 	#[arg(long, value_enum, default_value_t = crate::accel::Backend::CpuParallel, global = true)]
 	pub crypto_backend: crate::accel::Backend,
+
+	/// With `--crypto-backend metal`, smaller batches are verified on the CPU, which has lower
+	/// latency for a handful of signatures.
+	#[arg(long, default_value_t = 64, global = true)]
+	pub metal_min_batch: usize,
 }
 
 #[derive(Debug, clap::Subcommand)]

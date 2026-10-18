@@ -1152,6 +1152,7 @@ dependencies = [
 name = "canggu-node"
 version = "0.1.0"
 dependencies = [
+ "canggu-gpu",
  "canggu-primitives",
  "canggu-runtime",
  "clap",

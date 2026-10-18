@@ -63,6 +63,7 @@ pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
 
 # Local Dependencies
+canggu-gpu = { workspace = true }
 canggu-primitives = { workspace = true, default-features = true }
 canggu-runtime = { workspace = true }
 
