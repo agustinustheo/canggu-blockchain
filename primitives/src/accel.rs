@@ -15,12 +15,22 @@ use std::{
 /// One verification job: `(public key, message, signature)`.
 pub type Job = (Vec<u8>, Vec<u8>, Vec<u8>);
 
+/// The outcome of one batch.
+pub struct Verification {
+	/// One verdict per job. Must equal [`keyring::verify_with_context`] item by item.
+	pub verdicts: Vec<bool>,
+	/// What actually did the work, e.g. `"Metal (Apple M4 Pro)"`.
+	pub engine: String,
+	/// Optional backend-specific detail for the log, e.g. GPU busy time.
+	pub detail: Option<String>,
+}
+
 /// A batch ML-DSA-65 verifier.
 pub trait BatchVerifier: Send + Sync {
 	/// Human readable name for logs, e.g. `"Metal (Apple M4 Pro)"`.
 	fn name(&self) -> String;
-	/// Verify every job with FIPS 204 context `ctx`. Must equal [`keyring::verify`] item by item.
-	fn verify(&self, jobs: &[Job], ctx: &[u8]) -> Vec<bool>;
+	/// Verify every job with FIPS 204 context `ctx`.
+	fn verify(&self, jobs: &[Job], ctx: &[u8]) -> Verification;
 }
 
 /// The reference implementation, one core.
@@ -31,10 +41,12 @@ impl BatchVerifier for Cpu {
 		"CPU (1 core)".into()
 	}
 
-	fn verify(&self, jobs: &[Job], ctx: &[u8]) -> Vec<bool> {
-		jobs.iter()
+	fn verify(&self, jobs: &[Job], ctx: &[u8]) -> Verification {
+		let verdicts = jobs
+			.iter()
 			.map(|(pk, msg, sig)| keyring::verify_with_context(pk, msg, sig, ctx))
-			.collect()
+			.collect();
+		Verification { verdicts, engine: self.name(), detail: None }
 	}
 }
 
@@ -46,11 +58,13 @@ impl BatchVerifier for CpuParallel {
 		format!("CPU ({} cores)", rayon::current_num_threads())
 	}
 
-	fn verify(&self, jobs: &[Job], ctx: &[u8]) -> Vec<bool> {
+	fn verify(&self, jobs: &[Job], ctx: &[u8]) -> Verification {
 		use rayon::prelude::*;
-		jobs.par_iter()
+		let verdicts = jobs
+			.par_iter()
 			.map(|(pk, msg, sig)| keyring::verify_with_context(pk, msg, sig, ctx))
-			.collect()
+			.collect();
+		Verification { verdicts, engine: self.name(), detail: None }
 	}
 }
 
@@ -68,17 +82,18 @@ pub fn backend() -> &'static dyn BatchVerifier {
 
 /// Verify a batch with the installed backend and log how long it took.
 pub fn verify_batch(jobs: &[Job], ctx: &[u8]) -> Vec<bool> {
-	let backend = backend();
 	let started = Instant::now();
-	let results = backend.verify(jobs, ctx);
-	log_batch(&backend.name(), jobs.len(), &results, started.elapsed());
-	results
+	let verification = backend().verify(jobs, ctx);
+	log_batch(jobs.len(), &verification, started.elapsed());
+	verification.verdicts
 }
 
-fn log_batch(backend: &str, n: usize, results: &[bool], elapsed: Duration) {
-	let valid = results.iter().filter(|ok| **ok).count();
+fn log_batch(n: usize, verification: &Verification, elapsed: Duration) {
+	let valid = verification.verdicts.iter().filter(|ok| **ok).count();
+	let detail = verification.detail.as_ref().map(|d| format!(" ({d})")).unwrap_or_default();
 	log::info!(
 		target: "canggu-accel",
-		"⚡ {backend}: batch-verified {n} ML-DSA-65 signatures ({valid} valid) in {elapsed:.2?}",
+		"⚡ {}: batch-verified {n} ML-DSA-65 signatures ({valid} valid) in {elapsed:.2?}{detail}",
+		verification.engine,
 	);
 }
