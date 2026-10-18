@@ -1,0 +1,41 @@
+[package]
+name = "canggu-gpu"
+description = "Batch ML-DSA-65 (FIPS 204) signature verification on Apple Metal GPUs"
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# No dependencies on other platforms: the CPU reference is self-contained.
+[dependencies]
+
+# Metal bindings; `objc2-core-foundation` is needed for the command buffer GPU timestamps.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", default-features = false, features = ["std"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+	"std",
+	"NSError",
+	"NSString",
+] }
+objc2-metal = { version = "0.3.2", default-features = false, features = [
+	"std",
+	"MTLAllocation",
+	"MTLBuffer",
+	"MTLCommandBuffer",
+	"MTLCommandEncoder",
+	"MTLCommandQueue",
+	"MTLComputeCommandEncoder",
+	"MTLComputePipeline",
+	"MTLDevice",
+	"MTLLibrary",
+	"MTLResource",
+	"MTLTypes",
+	"objc2-core-foundation",
+] }
+
+[dev-dependencies]
+ml-dsa = { workspace = true, features = ["alloc"] }
