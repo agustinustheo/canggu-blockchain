@@ -61,7 +61,8 @@ for i in $(seq 1 "$BATCHES"); do
 	# Alternate the RPC endpoint; the transaction is gossiped to whichever validator authors next.
 	port=$((i % 2 == 0 ? 9945 : 9944))
 	echo "--- batch $i via :$port"
-	"$BIN/canggu" --url "http://127.0.0.1:$port" intents --count "$COUNT" --senders 64 --forge 2
+	"$BIN/canggu" --url "http://127.0.0.1:$port" intents --count "$COUNT" --senders 64 --forge 2 |
+		tee -a "$WORK/batches.log"
 done
 
 target=$(header_number 9944)
@@ -88,5 +89,13 @@ for n in $(seq 1 "$target"); do
 done
 echo "blocks 1..$target: $([ $mismatch -eq 0 ] && echo identical || echo DIFFERENT)"
 echo "finalized: alice #$(finalized_number 9944), bob #$(finalized_number 9945)"
-echo "authored by Alice: $(grep -c 'Prepared block for proposing' "$WORK/alice.log"), by Bob: $(grep -c 'Prepared block for proposing' "$WORK/bob.log")"
+echo
+echo "=== who authored each batch block (the other validator re-executed it on import) ==="
+for n in $(sed -nE 's/.*block #([0-9]+):.*/\1/p' "$WORK/batches.log"); do
+	if grep -q "Prepared block for proposing at $n " "$WORK/alice.log"; then
+		echo "#$n: authored by Alice ($ALICE_BACKEND), imported by Bob ($BOB_BACKEND)"
+	else
+		echo "#$n: authored by Bob ($BOB_BACKEND), imported by Alice ($ALICE_BACKEND)"
+	fi
+done
 exit $mismatch
