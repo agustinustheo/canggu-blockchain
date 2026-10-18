@@ -6,7 +6,10 @@ MEV-resistant, GPU-parallel blockchain designed by the Bitwyre team, on top of t
 
 It is an experiment, not an endorsement. The goal is to take an ambitious design and see which parts
 map cleanly onto Substrate/FRAME, which need new primitives, and where the hard limits are,
-including whether a Polkadot SDK node can put real work on a GPU.
+including whether a Polkadot SDK node can put real work on a GPU. **It can:** blocks containing
+hundreds of post-quantum signatures are verified on an Apple M4 Pro GPU through Metal, while a
+second validator verifies the same blocks on its CPU, and the two stay in consensus
+([details](#polkadot-sdk-on-a-gpu)).
 
 > **Credits.** Canggu, its design and its original whitepaper are the work of
 > **Dendi Suhubdy, Tejveer Singh, Mitul Dhawan and Maldini Sonkeng (Bitwyre)**. The original
@@ -36,6 +39,8 @@ $ ./target/release/canggu demo
   proof generated on CPU in 32.7ms: 192 bytes
   ok: the chain verified the payroll total without seeing any salary
   same proof, claimed total + 1: rejected with ZkVerifier::InvalidProof
+=== 6. Post-quantum intents: one batch, one (GPU-accelerable) host call ===
+  block #13: 62 intents executed, 2 rejected {"BadSignature": 2}
 All Canggu features exercised successfully.
 ```
 
@@ -47,7 +52,8 @@ All Canggu features exercised successfully.
 | MEV mitigation | Dependency enforcement + **no tips** (no priority-fee auction) | 🟡 encrypted mempool still needed |
 | Tower-BFT-style leader consensus | Aura (2 s round-robin leader slots) + GRANDPA finality | ✅ (not sub-second) |
 | ZK-SNARK verifiers / provers | Groth16 verifier pallet + host function; off-chain prover | ✅ (not post-quantum) |
-| Parallel CPU/GPU contracts | Conflict-free batch payroll; GPU behind host functions | 🟡 GPU in progress |
+| GPU acceleration | Batch ML-DSA verification on **Apple Metal**, behind a runtime host function | ✅ |
+| Parallel CPU/GPU contracts | Conflict-free batch payroll; general GPU contracts are not deterministic | 🟡 |
 | 50,000+ TPS | Measured: bandwidth-bound at ~370 PQ transfers/s | ❌ needs signature compression |
 
 ## Architecture
@@ -62,18 +68,22 @@ flowchart LR
     TP["Transaction pool<br/>provides/requires DAG"]
     C["Aura leader slots<br/>+ GRANDPA finality"]
     X["Wasm executor"]
-    H["Host functions<br/>ml_dsa_65_verify<br/>groth16_bls12_381_verify"]
+    H["Host functions<br/>ml_dsa_65_verify<br/>ml_dsa_65_batch_verify<br/>groth16_bls12_381_verify"]
+    G["Metal GPU<br/>(--crypto-backend metal)"]
   end
   subgraph Runtime["canggu-runtime (Wasm, on-chain)"]
     S["CangguSignature"]
     D["CheckDagParents<br/>ChargeTransactionPaymentNoTip"]
     Z["pallet-zk-verifier"]
     PP["pallet-parallel-payroll"]
+    I["pallet-pq-intents"]
   end
   W -- signed tx --> TP --> C --> X --> Runtime
   P -- proof tx --> TP
   S -. calls .-> H
   Z -. calls .-> H
+  I -. one call per batch .-> H
+  H -- batch --> G
 ```
 
 The core trick is to keep consensus logic in the Wasm runtime and move **heavy cryptography into
@@ -106,6 +116,12 @@ swap a CPU implementation for a GPU one without changing consensus.
 * Example *private payroll* circuit: prove that hidden 64-bit salaries sum to a public total and open
   a public MiMC commitment, without revealing any salary.
 
+### Post-quantum intents: `pallets/pq-intents/`
+* Users sign transfer *intents* off-chain. A relayer submits up to 640 of them in one extrinsic.
+* The runtime verifies the whole batch with **one** host call, `ml_dsa_65_batch_verify`, which is the
+  call a node can run on a GPU. Each intent then succeeds or is rejected on its own (bad signature,
+  stale nonce, failed transfer).
+
 ### Parallel payroll: `pallets/parallel-payroll/`
 * `batch_pay` debits the employer once, then credits distinct recipients. Distinctness is enforced,
   so the credits touch disjoint state and commute, which is the property a parallel executor needs.
@@ -115,6 +131,7 @@ swap a CPU implementation for a GPU one without changing consensus.
 | | |
 | --- | --- |
 | ML-DSA-65 verify (native host fn, 1 core) | **61 µs** |
+| ML-DSA-65 batch verify on Metal, 4,096 sigs | **6.5 ms** (630k sig/s, 4.45× all 12 CPU cores) |
 | ML-DSA-65 transfer extrinsic | **5,345 B** (vs ~150 B for sr25519) |
 | Groth16 verify, payroll circuit (any size) | **2.3 ms**, 192 B proof |
 | Groth16 prove, 1,024 salaries (405k constraints) | 2.0 s on 12 cores |
@@ -138,19 +155,93 @@ whitepaper, and the most important ones are:
 
 ## Polkadot SDK on a GPU?
 
-The runtime itself can't sensibly run on a GPU. Every validator must compute bit-identical state
-roots, execution must be metered, and GPU kernels can't touch the state trie. The design therefore
-puts the GPU **behind host functions**: the CPU implementation defines consensus, and a GPU backend
-must match it bit for bit.
+The Wasm runtime itself can't sensibly run on a GPU. Every validator must compute bit-identical state
+roots, execution must be metered, and GPU kernels can't touch the state trie. So this rebuild goes as
+close to the GPU as the Polkadot SDK allows: **the runtime stays deterministic Wasm, and makes one
+host call per batch that the node executes on the GPU.**
 
-Status: in progress. The next commits add an Apple Metal backend for batch ML-DSA verification,
-reachable from the runtime.
+```
+runtime (Wasm)  pallet-pq-intents::submit_intents(640 signed intents)
+      │  canggu_crypto::ml_dsa_65_batch_verify(batch)          ← one host call
+node (native)   accel backend chosen with --crypto-backend
+      ├─ cpu            reference implementation, 1 core      ← defines the correct answer
+      ├─ cpu-parallel   reference implementation, all cores   (default)
+      └─ metal          gpu/: FIPS 204 Verify as Metal compute kernels
+                          CPU: decode, hint/z checks, tr, μ, challenge
+                          GPU: NTTs → ExpandA × z → UseHint/w1Encode → SHAKE256 compare
+```
+
+### Proof that it runs on the GPU
+
+**1. A live chain, verifying on Metal.** `canggu-node --dev --crypto-backend metal`, then
+`canggu intents --count 640 --forge 4`:
+
+```
+⚡ ML-DSA-65 batch verification backend: Metal (Apple M4 Pro), batches of 64+ signatures
+⚡ Metal (Apple M4 Pro): batch-verified 640 ML-DSA-65 signatures (636 valid) in 8.36ms (GPU busy 4.12ms over 1 command buffer(s), CPU prep 968.21µs)
+⚡ Metal (Apple M4 Pro): batch-verified 256 ML-DSA-65 signatures (252 valid) in 5.24ms (GPU busy 1.66ms over 1 command buffer(s), CPU prep 652.50µs)
+⚡ CPU (12 cores): batch-verified 32 ML-DSA-65 signatures (28 valid) in 749.13µs (below --metal-min-batch 64)
+```
+
+"GPU busy" is measured by Metal itself (`MTLCommandBuffer` `GPUStartTime`/`GPUEndTime`). The four
+forged intents in each batch were rejected on the GPU.
+
+**2. Consensus across different hardware.** [`scripts/mixed-backends.sh`](scripts/mixed-backends.sh)
+runs two validators: Alice verifies on Metal, Bob on one CPU core. Aura alternates authors, so every
+batch is verified by the GPU on one validator and by the CPU on the other. Had they disagreed on a
+single signature, the importing node would compute a different state root and reject the block.
+
+```
+#6:  authored by Alice (metal), imported by Bob (cpu)
+#7:  authored by Bob (cpu), imported by Alice (metal)
+#8:  authored by Alice (metal), imported by Bob (cpu)
+#9:  authored by Bob (cpu), imported by Alice (metal)
+#10: authored by Alice (metal), imported by Bob (cpu)
+#11: authored by Bob (cpu), imported by Alice (metal)
+blocks 1..11: identical
+finalized: alice #11, bob #11
+```
+
+**3. Bit-exactness tests.** `cargo test --release -p canggu-gpu` checks the Metal kernels, a
+pure-Rust mirror of each kernel, and the RustCrypto `ml-dsa` crate against each other on 5,454 items:
+2,504 valid signatures, and 2,950 corrupted ones (bit flips in every field, malformed hints, z at the
+bound, wrong contexts and lengths). All three agree on every item. A GPU self-test, which also runs
+at node start-up, checks UseHint for **every** value below q, the modular arithmetic and Keccak-f
+against the CPU. It caught a planted off-by-one that real signatures never exercise.
+
+**4. Throughput** (`cargo run --release --bin bench`, Apple M4 Pro, medians; wall time includes CPU
+pre-processing and transfers):
+
+| batch | ml-dsa, 1 core | ml-dsa, 12 cores | Metal | GPU busy | Metal vs 12 cores |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0.060 ms | 0.060 ms | 0.330 ms | 0.203 ms | 0.18× |
+| 64 | 3.77 ms | 0.61 ms | 0.45 ms | 0.23 ms | 1.35× |
+| 256 | 15.2 ms | 1.95 ms | 0.85 ms | 0.43 ms | 2.29× |
+| 1024 | 61.2 ms | 7.52 ms | 2.12 ms | 1.50 ms | 3.55× |
+| 4096 | 246 ms | 29.0 ms | 6.51 ms | 5.59 ms | **4.45×** (630k sig/s) |
+
+Honest caveats:
+
+* Below ~64 signatures the fixed ~0.2 ms GPU submission cost loses to the CPU, so the node routes
+  small batches to the CPU.
+* In the live node, a batch costs more than in the warm benchmark. The node also copies the batch
+  across the host-function boundary, and on this machine macOS's photo-analysis service was keeping
+  the GPU busy at the same time.
+* Weights are still charged at single-core CPU cost, because every validator must be able to keep
+  up, GPU or not.
+* Only Apple Metal is implemented. A CUDA backend would slot in behind the same trait, with the same
+  differential tests.
+
+Why signatures? ML-DSA verification is mostly SHAKE128 matrix expansion and number-theoretic
+transforms: integer-only, embarrassingly parallel, and exactly what makes post-quantum accounts
+expensive. That makes it the GPU workload that matters most for this design.
 
 ## Quick start
 
 ```bash
 cargo build --release                       # node + CLI (~10 min cold)
 ./target/release/canggu-node --dev --tmp    # 2 s blocks, RPC on 127.0.0.1:9944
+                                            # add --crypto-backend metal on Apple silicon
 ./target/release/canggu demo                # in another terminal
 ```
 
@@ -170,6 +261,7 @@ canggu zk-setup --recipients 3        # single-party setup: demo only
 canggu zk-register --from //Bob
 canggu zk-prove --salt 7 --amounts 100,200,300
 canggu zk-submit --from //Bob
+canggu intents --count 640 --forge 4  # one batch of PQ-signed intents (GPU with --crypto-backend metal)
 canggu bench                          # native crypto benchmarks, no node needed
 ```
 
@@ -179,7 +271,8 @@ canggu bench                          # native crypto benchmarks, no node needed
 cargo test --release --workspace
 ```
 
-The runtime integration tests (`runtime/tests/extrinsics.rs`) push real ML-DSA-signed extrinsics
+53 tests. Besides the GPU differential tests above, the runtime integration tests
+(`runtime/tests/extrinsics.rs`) push real ML-DSA-signed extrinsics
 through `Executive`. They cover valid transfers, bit-flipped and key-substituted signatures
 (`BadProof`), a DAG child before its parent (`Future`), and tips (rejected).
 
@@ -191,6 +284,10 @@ through `Executive`. They cover valid transfers, bit-flipped and key-substituted
 | `pallets/dag-ordering/` | `canggu-dag-ordering` | `CheckDagParents`, `ChargeTransactionPaymentNoTip` |
 | `pallets/zk-verifier/` | `pallet-zk-verifier` | Groth16 verifying keys and proofs |
 | `pallets/parallel-payroll/` | `pallet-parallel-payroll` | Conflict-free batch payments |
+| `pallets/pq-intents/` | `pallet-pq-intents` | Batches of ML-DSA-signed intents, one batch host call |
+| `gpu/` | `canggu-gpu` | ML-DSA-65 batch verification on Apple Metal, CPU mirror, differential tests |
+| `gpu/bench/` | `canggu-gpu-bench` | Metal vs CPU benchmark |
+| `scripts/` | | `mixed-backends.sh`: two validators, GPU vs CPU, one chain |
 | `zk/` | `canggu-zk` | Private payroll circuit, setup, proving |
 | `runtime/` | `canggu-runtime` | FRAME runtime |
 | `node/` | `canggu-node` | Aura + GRANDPA node with Canggu host functions |

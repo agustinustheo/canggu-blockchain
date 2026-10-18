@@ -22,6 +22,7 @@ rebuild. See the README for details.
 
 ## GPU (originally "CUDA")
 
-- [ ] GPU backend for the runtime's crypto host functions (Apple Metal first)
+- [x] GPU backend for the runtime's crypto host functions: batch ML-DSA-65 on Apple Metal
+- [ ] CUDA backend behind the same trait and differential tests
 - [ ] GPU-accelerated proof generation (MSM / NTT)
 - [ ] Benchmarked weights
