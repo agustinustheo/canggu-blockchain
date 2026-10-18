@@ -1140,6 +1140,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "canggu-gpu-bench"
+version = "0.1.0"
+dependencies = [
+ "canggu-gpu",
+ "ml-dsa",
+ "rayon",
+]
+
+[[package]]
 name = "canggu-node"
 version = "0.1.0"
 dependencies = [

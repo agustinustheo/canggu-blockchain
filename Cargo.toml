@@ -10,6 +10,7 @@ version = "0.1.0"
 members = [
 	"cli",
 	"gpu",
+	"gpu/bench",
 	"node",
 	"pallets/dag-ordering",
 	"pallets/parallel-payroll",

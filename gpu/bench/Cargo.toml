@@ -1,0 +1,20 @@
+[package]
+name = "canggu-gpu-bench"
+description = "Benchmarks the Metal ML-DSA-65 verifier against ml-dsa on one and all cores"
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "bench"
+path = "src/main.rs"
+
+[dependencies]
+canggu-gpu = { workspace = true }
+ml-dsa = { workspace = true, features = ["alloc"] }
+rayon = { workspace = true }
