@@ -15,6 +15,7 @@ members = [
 	"pallets/dag-ordering",
 	"pallets/parallel-payroll",
 	"pallets/pq-intents",
+	"pallets/sealed-ordering",
 	"pallets/zk-verifier",
 	"primitives",
 	"zk",
@@ -40,6 +41,7 @@ canggu-gpu = { path = "gpu" }
 canggu-dag-ordering = { path = "pallets/dag-ordering", default-features = false }
 pallet-parallel-payroll = { path = "pallets/parallel-payroll", default-features = false }
 pallet-pq-intents = { path = "pallets/pq-intents", default-features = false }
+pallet-sealed-ordering = { path = "pallets/sealed-ordering", default-features = false }
 pallet-zk-verifier = { path = "pallets/zk-verifier", default-features = false }
 
 # General
