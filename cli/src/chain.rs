@@ -183,13 +183,26 @@ impl Chain {
 	}
 
 	fn events(&self, block: H256, index: u32) -> Result<Vec<RuntimeEvent>> {
+		self.events_in_phase(block, Phase::ApplyExtrinsic(index))
+	}
+
+	fn events_in_phase(&self, block: H256, phase: Phase) -> Result<Vec<RuntimeEvent>> {
 		let key = frame_support::storage::storage_prefix(b"System", b"Events");
 		let records: Vec<EventRecord<RuntimeEvent, H256>> =
 			self.rpc.storage(&key, Some(block))?.unwrap_or_default();
-		Ok(records
-			.into_iter()
-			.filter(|r| r.phase == Phase::ApplyExtrinsic(index))
-			.map(|r| r.event)
-			.collect())
+		Ok(records.into_iter().filter(|r| r.phase == phase).map(|r| r.event).collect())
+	}
+
+	/// Wait for block `number` and return the events of its `on_initialize` phase, where e.g.
+	/// sealed calls execute.
+	pub fn initialization_events(&self, number: u32) -> Result<Vec<RuntimeEvent>> {
+		let deadline = Instant::now() + Duration::from_secs(60);
+		while self.rpc.best_number()? < number {
+			if Instant::now() > deadline {
+				bail!("block #{number} not produced within 60s");
+			}
+			std::thread::sleep(Duration::from_millis(250));
+		}
+		self.events_in_phase(self.rpc.block_hash(number)?, Phase::Initialization)
 	}
 }

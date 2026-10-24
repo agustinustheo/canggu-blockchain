@@ -111,6 +111,12 @@ enum Command {
 		#[arg(long, default_value_t = 0)]
 		forge: usize,
 	},
+	/// Sealed (order-then-reveal) ordering: a relayer commits hashes, senders reveal in reverse
+	/// order, and the chain executes in a canonical order nobody chose.
+	Sealed {
+		#[arg(long, default_value = "//Alice")]
+		relayer: String,
+	},
 	/// Run an end-to-end tour of every Canggu feature against a `--dev` node.
 	Demo,
 	/// Measure the native cryptography (no node needed).
@@ -218,6 +224,7 @@ fn main() -> Result<()> {
 		Command::Intents { relayer, count, senders, forge } => {
 			intents(&Chain::connect(&cli.url)?, &pair(&relayer)?, count, senders, forge).map(|_| ())
 		},
+		Command::Sealed { relayer } => sealed(&Chain::connect(&cli.url)?, &pair(&relayer)?),
 		Command::Demo => demo(&Chain::connect(&cli.url)?),
 		Command::Bench { recipients } => bench(&recipients),
 	}
@@ -457,6 +464,9 @@ fn demo(chain: &Chain) -> Result<()> {
 	let (executed, rejected) = intents(chain, &alice, 64, 16, 2)?;
 	ensure!((executed, rejected) == (62, 2), "unexpected batch outcome");
 
+	step("7. Sealed ordering: commit hashes, reveal later, canonical execution order");
+	sealed(chain, &alice)?;
+
 	println!("\nAll Canggu features exercised successfully.");
 	Ok(())
 }
@@ -628,4 +638,118 @@ fn report_quiet(included: &Included) -> Result<()> {
 		Some(failure) => bail!("dispatch failed: {failure}"),
 		None => Ok(()),
 	}
+}
+
+/// Order-then-reveal: commitments fix the order before anyone knows the contents.
+fn sealed(chain: &Chain, relayer: &MlDsa65Pair) -> Result<()> {
+	use frame_support::traits::Get;
+	use pallet_sealed_ordering::{commitment_of, order_key, Event as Sealed};
+
+	let names = ["Bob", "Charlie", "Dave", "Eve"];
+	let senders = names.map(keyring::dev);
+	let to = keyring::dev("Alice").account_id();
+	struct Plan {
+		name: &'static str,
+		call: RuntimeCall,
+		salt: [u8; 32],
+		commitment: [u8; 32],
+	}
+	let plans: Vec<Plan> = names
+		.iter()
+		.zip(&senders)
+		.enumerate()
+		.map(|(i, (name, sender))| {
+			let call = transfer_call(&to, (i as u128 + 1) * chain::UNIT);
+			let salt: [u8; 32] = rand::random();
+			let commitment = commitment_of(&sender.account_id(), &call.encode(), &salt);
+			Plan { name, call, salt, commitment }
+		})
+		.collect();
+
+	// 1. The relayer commits all four. On chain these are four 32-byte hashes from one account.
+	let nonce = chain.rpc.next_nonce(&relayer.account_id())?;
+	let pending = plans
+		.iter()
+		.enumerate()
+		.map(|(k, plan)| {
+			let call = RuntimeCall::Sealed(pallet_sealed_ordering::Call::commit {
+				commitment: plan.commitment,
+			});
+			chain.submit(&chain.sign(relayer, call, nonce + k as u32, vec![], 0)?)
+		})
+		.collect::<Result<Vec<_>>>()?;
+	let commit_blocks: Vec<u32> = pending
+		.iter()
+		.map(|p| chain.wait(p).map(|i| i.block_number))
+		.collect::<Result<_>>()?;
+	println!(
+		"  relayer committed 4 opaque 32-byte hashes in block(s) {:?}: nobody can tell who pays whom",
+		commit_blocks.iter().collect::<std::collections::BTreeSet<_>>()
+	);
+
+	// 2. Bob, Charlie and Dave reveal, in reverse order. Eve never reveals.
+	let mut reveals = vec![];
+	for k in (0..3).rev() {
+		let (plan, sender) = (&plans[k], &senders[k]);
+		let call = RuntimeCall::Sealed(pallet_sealed_ordering::Call::reveal {
+			block: commit_blocks[k],
+			call: Box::new(plan.call.clone()),
+			salt: plan.salt,
+		});
+		let nonce = chain.rpc.next_nonce(&sender.account_id())?;
+		reveals.push((plan.name, chain.submit(&chain.sign(sender, call, nonce, vec![], 0)?)?));
+	}
+	for (name, pending) in &reveals {
+		let included = chain.wait(pending)?;
+		if let Some(failure) = included.failure() {
+			bail!("{name}'s reveal failed: {failure}");
+		}
+		println!(
+			"  {name} revealed in block #{} (index {})",
+			included.block_number, included.index
+		);
+	}
+
+	// 3. Each commit block settles RevealWindow + 1 blocks later, in canonical order.
+	let delay = <<Runtime as pallet_sealed_ordering::Config>::RevealWindow as Get<u32>>::get() + 1;
+	let mut blocks: Vec<u32> = commit_blocks.clone();
+	blocks.sort();
+	blocks.dedup();
+	let name_of =
+		|c: &[u8; 32]| plans.iter().find(|p| &p.commitment == c).map(|p| p.name).unwrap_or("?");
+	for block in blocks {
+		let events = chain.initialization_events(block + delay)?;
+		let commit_hash = chain.rpc.block_hash(block)?;
+		let mut expected: Vec<&Plan> = plans
+			.iter()
+			.zip(&commit_blocks)
+			.filter(|(p, b)| **b == block && p.name != "Eve")
+			.map(|(p, _)| p)
+			.collect();
+		expected.sort_by_key(|p| order_key(&p.commitment, &commit_hash));
+		let mut executed = vec![];
+		for event in events {
+			match event {
+				RuntimeEvent::Sealed(Sealed::Executed { position, commitment, result, .. }) => {
+					println!(
+						"  block #{}: position {position}: {} ({})",
+						block + delay,
+						name_of(&commitment),
+						if result.is_ok() { "ok" } else { "failed" }
+					);
+					executed.push(commitment);
+				},
+				RuntimeEvent::Sealed(Sealed::Forfeited { commitment, .. }) => println!(
+					"  block #{}: {} never revealed, deposit burned",
+					block + delay,
+					name_of(&commitment)
+				),
+				_ => {},
+			}
+		}
+		let expected: Vec<[u8; 32]> = expected.iter().map(|p| p.commitment).collect();
+		ensure!(executed == expected, "execution order is not the canonical order");
+	}
+	println!("  ok: execution order = blake2(commitment ‖ commit-block hash), not reveal order");
+	Ok(())
 }

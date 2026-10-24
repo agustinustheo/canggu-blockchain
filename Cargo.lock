@@ -1103,6 +1103,7 @@ dependencies = [
  "pallet-balances",
  "pallet-parallel-payroll",
  "pallet-pq-intents",
+ "pallet-sealed-ordering",
  "pallet-transaction-payment",
  "pallet-zk-verifier",
  "parity-scale-codec",
