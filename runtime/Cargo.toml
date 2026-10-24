@@ -57,6 +57,7 @@ canggu-dag-ordering = { workspace = true }
 canggu-primitives = { workspace = true }
 pallet-parallel-payroll = { workspace = true }
 pallet-pq-intents = { workspace = true }
+pallet-sealed-ordering = { workspace = true }
 pallet-zk-verifier = { workspace = true }
 
 [dev-dependencies]
@@ -82,6 +83,7 @@ std = [
 	"pallet-grandpa/std",
 	"pallet-parallel-payroll/std",
 	"pallet-pq-intents/std",
+	"pallet-sealed-ordering/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
@@ -115,6 +117,7 @@ try-runtime = [
 	"pallet-grandpa/try-runtime",
 	"pallet-parallel-payroll/try-runtime",
 	"pallet-pq-intents/try-runtime",
+	"pallet-sealed-ordering/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",

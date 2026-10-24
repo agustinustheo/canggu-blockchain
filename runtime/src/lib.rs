@@ -222,4 +222,7 @@ mod runtime {
 
 	#[runtime::pallet_index(9)]
 	pub type Intents = pallet_pq_intents;
+
+	#[runtime::pallet_index(10)]
+	pub type Sealed = pallet_sealed_ordering;
 }

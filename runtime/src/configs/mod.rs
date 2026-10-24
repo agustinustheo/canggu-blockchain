@@ -156,6 +156,32 @@ impl pallet_parallel_payroll::Config for Runtime {
 	type MaxRecipients = ConstU32<1024>;
 }
 
+/// Calls that may go through sealed (order-then-reveal) ordering: value transfers and payroll.
+pub struct SealableCalls;
+impl frame_support::traits::Contains<RuntimeCall> for SealableCalls {
+	fn contains(call: &RuntimeCall) -> bool {
+		matches!(call, RuntimeCall::Balances(_) | RuntimeCall::Payroll(_))
+	}
+}
+
+parameter_types! {
+	pub const SealedCommitDeposit: Balance = crate::UNIT;
+	/// 64 commitments x 5 ms keeps a block's settlement under a third of its 1 s weight budget.
+	pub SealedMaxCallWeight: Weight = Weight::from_parts(5 * WEIGHT_REF_TIME_PER_SECOND / 1000, 256 * 1024);
+}
+
+impl pallet_sealed_ordering::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
+	type CallFilter = SealableCalls;
+	type CommitDeposit = SealedCommitDeposit;
+	type RevealWindow = ConstU32<2>;
+	type MaxCommitsPerBlock = ConstU32<64>;
+	type MaxCallLen = ConstU32<{ 16 * 1024 }>;
+	type MaxCallWeight = SealedMaxCallWeight;
+}
+
 impl pallet_pq_intents::Config for Runtime {
 	type Currency = Balances;
 	// ~5.3 kB per signed intent: 640 of them fit in the normal-class share of a 5 MiB block.

@@ -1228,6 +1228,7 @@ dependencies = [
  "pallet-grandpa",
  "pallet-parallel-payroll",
  "pallet-pq-intents",
+ "pallet-sealed-ordering",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
