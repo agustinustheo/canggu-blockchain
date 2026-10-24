@@ -15,7 +15,13 @@ rebuild. See the README for details.
 - [ ] Kyber (ML-KEM, FIPS 203): it is a KEM, so it belongs to an encrypted mempool / p2p transport,
       not to transaction signing
 - [x] DAG-based mempool: cross-account dependencies enforced by the pool and by consensus
-- [ ] Encrypted mempool (needed to stop front-running of independent transactions)
+- [x] Order-then-reveal (sealed) ordering against front-running, adapted from Rand Protocol's
+      Theorem 15.4 with hash commitments
+- [ ] Threshold-encrypted mempool (removes the commit-reveal free option; needs post-quantum
+      threshold decryption)
+- [ ] Anonymous commitments via ring proofs (`paritytech/verifiable`) instead of relayers
+- [ ] Signature compression: STARK over a window of ML-DSA verifications, sealed by GPU
+      aggregators (Rand Protocol's aggregation design)
 - [x] ZK-SNARKs: proof generation (off-chain) and on-chain Groth16 verification
 - [ ] Post-quantum proofs (STARKs); BLS12-381 is not quantum-resistant
 - [x] Explore NIST post-quantum crypto papers: Kyber, Dilithium specs
