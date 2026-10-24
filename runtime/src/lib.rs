@@ -78,11 +78,27 @@ mod block_times {
 	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
 	/// slot_duration()`.
 	///
-	/// Change this to adjust the block time.
-	/// Canggu targets fast leader rotation: a new Aura leader every 2 seconds. Finality comes from
-	/// GRANDPA a few blocks later. (The whitepaper's sub-second goal needs a different finality
-	/// gadget; see its "Consensus" section.)
-	pub const MILLI_SECS_PER_BLOCK: u64 = 2000;
+	/// Canggu targets fast leader rotation: a new Aura leader every 2 seconds by default.
+	///
+	/// Research knob: build with `CANGGU_SLOT_MS=500 cargo build --release` to try shorter slots
+	/// (see `scripts/finality.sh`). A chain's slot duration can never change after genesis.
+	pub const MILLI_SECS_PER_BLOCK: u64 = match option_env!("CANGGU_SLOT_MS") {
+		Some(ms) => parse_ms(ms),
+		None => 2000,
+	};
+
+	const fn parse_ms(s: &str) -> u64 {
+		let bytes = s.as_bytes();
+		let mut value = 0u64;
+		let mut i = 0;
+		while i < bytes.len() {
+			assert!(bytes[i].is_ascii_digit(), "CANGGU_SLOT_MS must be a number of milliseconds");
+			value = value * 10 + (bytes[i] - b'0') as u64;
+			i += 1;
+		}
+		assert!(value >= 100, "CANGGU_SLOT_MS below 100 ms is not supported");
+		value
+	}
 
 	// NOTE: Currently it is not possible to change the slot duration after the chain has started.
 	// Attempting to do so will brick block production.

@@ -30,8 +30,9 @@ parameter_types! {
 
 	/// We allow for 2 seconds of compute with a 6 second average block time.
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::with_sensible_defaults(
-		// 1s of execution per 2s slot leaves the leader time to author and propagate.
-		Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
+		// Half of the slot for execution leaves the leader time to author and propagate
+		// (1 s per 2 s slot by default).
+		Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND * SLOT_DURATION / 2000, u64::MAX),
 		NORMAL_DISPATCH_RATIO,
 	);
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
@@ -166,8 +167,10 @@ impl frame_support::traits::Contains<RuntimeCall> for SealableCalls {
 
 parameter_types! {
 	pub const SealedCommitDeposit: Balance = crate::UNIT;
-	/// 64 commitments x 5 ms keeps a block's settlement under a third of its 1 s weight budget.
-	pub SealedMaxCallWeight: Weight = Weight::from_parts(5 * WEIGHT_REF_TIME_PER_SECOND / 1000, 256 * 1024);
+	/// 64 commitments x (slot / 400) keeps a block's settlement under a third of its weight budget
+	/// (5 ms per call with the default 2 s slot).
+	pub SealedMaxCallWeight: Weight =
+		Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND * SLOT_DURATION / 400_000, 256 * 1024);
 }
 
 impl pallet_sealed_ordering::Config for Runtime {

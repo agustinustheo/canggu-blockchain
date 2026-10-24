@@ -7,6 +7,8 @@ fn main() {
 
 #[cfg(all(feature = "std", not(feature = "metadata-hash")))]
 fn main() {
+	// The slot duration is a compile-time research knob (see `block_times` in lib.rs).
+	println!("cargo:rerun-if-env-changed=CANGGU_SLOT_MS");
 	substrate_wasm_builder::WasmBuilder::build_using_defaults();
 }
 
