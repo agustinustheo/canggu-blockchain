@@ -53,6 +53,14 @@ impl Rpc {
 		Ok(u32::from_str_radix(number.trim_start_matches("0x"), 16)?)
 	}
 
+	/// Number of the latest finalized block.
+	pub fn finalized_number(&self) -> Result<u32> {
+		let hash = self.call("chain_getFinalizedHead", json!([]))?;
+		let header = self.call("chain_getHeader", json!([as_str(&hash)?]))?;
+		let number = as_str(&header["number"])?;
+		Ok(u32::from_str_radix(number.trim_start_matches("0x"), 16)?)
+	}
+
 	/// `(spec_version, transaction_version)` of the current runtime.
 	pub fn runtime_version(&self) -> Result<(u32, u32)> {
 		let v = self.call("state_getRuntimeVersion", json!([]))?;

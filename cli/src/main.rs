@@ -117,6 +117,11 @@ enum Command {
 		#[arg(long, default_value = "//Alice")]
 		relayer: String,
 	},
+	/// Measure finality latency: time from a block's first appearance to its finalization.
+	Finality {
+		#[arg(long, default_value_t = 60)]
+		seconds: u64,
+	},
 	/// Run an end-to-end tour of every Canggu feature against a `--dev` node.
 	Demo,
 	/// Measure the native cryptography (no node needed).
@@ -225,6 +230,7 @@ fn main() -> Result<()> {
 			intents(&Chain::connect(&cli.url)?, &pair(&relayer)?, count, senders, forge).map(|_| ())
 		},
 		Command::Sealed { relayer } => sealed(&Chain::connect(&cli.url)?, &pair(&relayer)?),
+		Command::Finality { seconds } => finality(&rpc::Rpc::new(&cli.url), seconds),
 		Command::Demo => demo(&Chain::connect(&cli.url)?),
 		Command::Bench { recipients } => bench(&recipients),
 	}
@@ -751,5 +757,47 @@ fn sealed(chain: &Chain, relayer: &MlDsa65Pair) -> Result<()> {
 		ensure!(executed == expected, "execution order is not the canonical order");
 	}
 	println!("  ok: execution order = blake2(commitment ‖ commit-block hash), not reveal order");
+	Ok(())
+}
+
+/// Poll best and finalized heads and report per-block finality latency.
+fn finality(rpc: &rpc::Rpc, seconds: u64) -> Result<()> {
+	use std::{collections::BTreeMap, time::Duration};
+	let started = Instant::now();
+	let mut seen = BTreeMap::<u32, Instant>::new();
+	let mut finalized = BTreeMap::<u32, Instant>::new();
+	let (mut best_seen, mut final_seen) = (rpc.best_number()?, rpc.finalized_number()?);
+	while started.elapsed() < Duration::from_secs(seconds) {
+		let now = Instant::now();
+		let best = rpc.best_number()?;
+		for n in best_seen + 1..=best {
+			seen.insert(n, now);
+		}
+		best_seen = best_seen.max(best);
+		let fin = rpc.finalized_number()?;
+		for n in final_seen + 1..=fin {
+			finalized.insert(n, now);
+		}
+		final_seen = final_seen.max(fin);
+		std::thread::sleep(Duration::from_millis(20));
+	}
+	let mut latencies: Vec<Duration> = finalized
+		.iter()
+		.filter_map(|(n, at)| seen.get(n).map(|first| at.saturating_duration_since(*first)))
+		.collect();
+	ensure!(latencies.len() >= 3, "too few blocks were finalized in {seconds}s");
+	latencies.sort();
+	let pick = |q: f64| latencies[((latencies.len() - 1) as f64 * q).round() as usize];
+	let times: Vec<&Instant> = seen.values().collect();
+	let interval =
+		times.last().unwrap().duration_since(*times[0]) / (times.len() as u32 - 1).max(1);
+	println!("blocks seen {}, finalized {} (polling every 20 ms)", seen.len(), latencies.len());
+	println!("mean block interval {interval:.0?}");
+	println!(
+		"time to finality: p50 {:.0?}, p90 {:.0?}, max {:.0?}",
+		pick(0.5),
+		pick(0.9),
+		latencies.last().unwrap()
+	);
 	Ok(())
 }
