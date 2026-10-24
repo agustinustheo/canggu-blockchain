@@ -50,7 +50,8 @@ All Canggu features exercised successfully.
 | Quantum-resistant hashing | BLAKE2b-256 already gives 128-bit post-quantum preimage security | ✅ |
 | DAG mempool | The transaction pool is *already* a tag DAG. `CheckDagParents` adds cross-account edges, enforced by consensus | ✅ |
 | MEV mitigation | Dependency enforcement + **no tips** + **sealed order-then-reveal** ([from Rand](#lessons-from-rand-protocol-why-it-is-built-differently-and-what-we-took)) | 🟡 commit-reveal, not threshold encryption |
-| Tower-BFT-style leader consensus | Aura (2 s round-robin leader slots) + GRANDPA finality | ✅ (not sub-second) |
+| Tower-BFT-style leader consensus | Aura (2 s round-robin leader slots) + GRANDPA finality | ✅ |
+| Sub-second finality | Tuned GRANDPA: **242 ms** p50 on localhost ([measured](#sub-second-finality-how-far-can-grandpa-go)) | 🟡 not tested over a real network |
 | ZK-SNARK verifiers / provers | Groth16 verifier pallet + host function; off-chain prover | ✅ (not post-quantum) |
 | GPU acceleration | Batch ML-DSA verification on **Apple Metal**, behind a runtime host function | ✅ |
 | Parallel CPU/GPU contracts | Conflict-free batch payroll; general GPU contracts are not deterministic | 🟡 |
@@ -240,6 +241,46 @@ Why signatures? ML-DSA verification is mostly SHAKE128 matrix expansion and numb
 transforms: integer-only, embarrassingly parallel, and exactly what makes post-quantum accounts
 expensive. That makes it the GPU workload that matters most for this design.
 
+## Sub-second finality: how far can GRANDPA go?
+
+Canggu v1.3 asks for "sub-second finality". Substrate's defaults finalize about 5 seconds after a
+block appears, which makes it look like GRANDPA can't get there. Measuring showed the latency
+comes almost entirely from two conservative defaults, not from the protocol:
+
+* **Vote lag.** Substrate's voting rule `BeforeBestBlockBy(2)` makes validators vote for a block
+  two behind the best one, a margin against voting for a fork that is about to be abandoned. At
+  2 s blocks that is 4 s on its own. Lowering it doesn't weaken safety: a block is final only
+  with 2/3 precommits, and votes on a losing fork simply finalize the common ancestor.
+* **Gossip duration.** A GRANDPA voter waits up to 2× this before prevoting and 4× before
+  precommitting. The default is 333 ms.
+
+Both are now node flags (`--grandpa-vote-lag`, `--grandpa-gossip-ms`), and the slot length is a
+compile-time knob (`CANGGU_SLOT_MS`). `scripts/finality.sh` runs two validators and measures the
+time from each block's first appearance to its finalization:
+
+| slot | gossip | vote lag | time to finality p50 | p90 |
+| ---: | ---: | ---: | ---: | ---: |
+| 2 s | 333 ms | 2 (Substrate default) | 5 s | 6 s |
+| 2 s | 333 ms | 0 | 1 s | 2 s |
+| 2 s | 100 ms | 0 | 430 ms | 584 ms |
+| 2 s | 50 ms | 0 | **242 ms** | 288 ms |
+| 500 ms | 333 ms | 2 | 2 s | 3 s |
+| 500 ms | 50 ms | 0 | **217 ms** | 293 ms |
+| 500 ms | 25 ms | 0 | **121 ms** | 173 ms |
+
+These are **localhost** numbers: the protocol's floor, measured while other builds were loading
+the machine. Real validators add network latency to every round. The gossip duration has to
+exceed it, and each GRANDPA round needs about two message delays (prevote, precommit). A
+validator set with 50–100 ms between members should land well under a second. A global set with
+200 ms+ round trips probably won't. Nothing here was tested over a real network, and the shipped
+defaults stay at Substrate's conservative values.
+
+```bash
+GOSSIP_MS=50 VOTE_LAG=0 scripts/finality.sh 40                 # 2 s slots
+CANGGU_SLOT_MS=500 cargo build --release -p canggu-node &&
+  CANGGU_SLOT_MS=500 GOSSIP_MS=50 VOTE_LAG=0 scripts/finality.sh 30
+```
+
 ## Lessons from Rand Protocol: why it is built differently, and what we took
 
 [Rand Protocol](https://github.com/randprotocol/fullnode) ([whitepaper](http://randprotocol.org/papers/randprotocol.pdf))
@@ -348,6 +389,7 @@ canggu zk-prove --salt 7 --amounts 100,200,300
 canggu zk-submit --from //Bob
 canggu intents --count 640 --forge 4  # one batch of PQ-signed intents (GPU with --crypto-backend metal)
 canggu sealed                         # commit, reveal out of order, canonical execution
+canggu finality --seconds 40          # time from a block's appearance to its finalization
 canggu bench                          # native crypto benchmarks, no node needed
 ```
 
@@ -375,7 +417,7 @@ through `Executive`. They cover valid transfers, bit-flipped and key-substituted
 | `pallets/sealed-ordering/` | `pallet-sealed-ordering` | Order-then-reveal commitments with canonical execution order |
 | `gpu/` | `canggu-gpu` | ML-DSA-65 batch verification on Apple Metal, CPU mirror, differential tests |
 | `gpu/bench/` | `canggu-gpu-bench` | Metal vs CPU benchmark |
-| `scripts/` | | `mixed-backends.sh`: two validators, GPU vs CPU, one chain |
+| `scripts/` | | `mixed-backends.sh`: GPU vs CPU validators; `finality.sh`: time to finality |
 | `zk/` | `canggu-zk` | Private payroll circuit, setup, proving |
 | `runtime/` | `canggu-runtime` | FRAME runtime |
 | `node/` | `canggu-node` | Aura + GRANDPA node with Canggu host functions |

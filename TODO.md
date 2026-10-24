@@ -7,7 +7,8 @@ rebuild. See the README for details.
 
 - [x] Consensus mechanism: Aura (2 s round-robin leader slots) + GRANDPA finality
 - [ ] Post-quantum consensus keys (Aura/GRANDPA are still sr25519/ed25519)
-- [ ] Sub-second finality (needs a different finality gadget)
+- [x] Sub-second finality on localhost by tuning GRANDPA (vote lag 0, short gossip): 242 ms p50
+- [ ] Measure finality over a real network (WAN latency between validators)
 
 ## Quantum Resistant and Canggu Specific Features
 
