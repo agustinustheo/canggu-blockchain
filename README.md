@@ -49,7 +49,7 @@ All Canggu features exercised successfully.
 | Dilithium signatures | New `CangguSignature::MlDsa65` account signature, verified by a native **host function** | ✅ |
 | Quantum-resistant hashing | BLAKE2b-256 already gives 128-bit post-quantum preimage security | ✅ |
 | DAG mempool | The transaction pool is *already* a tag DAG. `CheckDagParents` adds cross-account edges, enforced by consensus | ✅ |
-| MEV mitigation | Dependency enforcement + **no tips** (no priority-fee auction) | 🟡 encrypted mempool still needed |
+| MEV mitigation | Dependency enforcement + **no tips** + **sealed order-then-reveal** ([from Rand](#lessons-from-rand-protocol-why-it-is-built-differently-and-what-we-took)) | 🟡 commit-reveal, not threshold encryption |
 | Tower-BFT-style leader consensus | Aura (2 s round-robin leader slots) + GRANDPA finality | ✅ (not sub-second) |
 | ZK-SNARK verifiers / provers | Groth16 verifier pallet + host function; off-chain prover | ✅ (not post-quantum) |
 | GPU acceleration | Batch ML-DSA verification on **Apple Metal**, behind a runtime host function | ✅ |
@@ -122,6 +122,10 @@ swap a CPU implementation for a GPU one without changing consensus.
   call a node can run on a GPU. Each intent then succeeds or is rejected on its own (bad signature,
   stale nonce, failed transfer).
 
+### Sealed ordering: `pallets/sealed-ordering/`
+* Commit a 32-byte hash, reveal later, execute in an order nobody chose. See
+  [Lessons from Rand Protocol](#lessons-from-rand-protocol-why-it-is-built-differently-and-what-we-took).
+
 ### Parallel payroll: `pallets/parallel-payroll/`
 * `batch_pay` debits the employer once, then credits distinct recipients. Distinctness is enforced,
   so the credits touch disjoint state and commute, which is the property a parallel executor needs.
@@ -149,7 +153,7 @@ whitepaper, and the most important ones are:
   the post-quantum path.
 * **A DAG doesn't make MEV computationally hard.** Topological sorting is linear and any linear
   extension is valid. The DAG enforces the dependencies users *declare*. Front-running independent
-  transactions needs encryption.
+  transactions needs order-then-reveal, which is now implemented as sealed ordering.
 * **50k TPS with 3.3 kB signatures** would mean ~265 MB/s of gossip. That needs signature
   compression (a STARK over the block's signatures), which is where the GPU and ZK pillars meet.
 
@@ -236,6 +240,87 @@ Why signatures? ML-DSA verification is mostly SHAKE128 matrix expansion and numb
 transforms: integer-only, embarrassingly parallel, and exactly what makes post-quantum accounts
 expensive. That makes it the GPU workload that matters most for this design.
 
+## Lessons from Rand Protocol: why it is built differently, and what we took
+
+[Rand Protocol](https://github.com/randprotocol/fullnode) ([whitepaper](http://randprotocol.org/papers/randprotocol.pdf))
+is a later chain by Dendi Suhubdy, one of Canggu's original authors. It makes many of the same
+choices (Dilithium, STARKs, GPU provers) on a different foundation. The differences come from one
+decision: Rand is a **fully shielded chain**, with no accounts, no balances and no visible senders.
+Canggu, like every Polkadot SDK chain, is an **account chain**.
+
+| | Rand Protocol | Canggu on the Polkadot SDK | Why they differ |
+| --- | --- | --- | --- |
+| **Authorizing a transfer** | No signature. A STARK proves "I own these notes" (spend authority is inside the proof). | An ML-DSA-65 signature per transaction. | A signature names its signer and links its transactions, which a privacy chain can't allow. An account chain has public senders anyway, and a signature is about 250× smaller and about 130,000× faster to produce (5.3 kB in 0.75 ms, against ~1.3 MB in ~100 s). |
+| **Cost per transfer** | ~1.3 MB, about 3 transfers per 4 MiB block | 5.3 kB, about 740 per block | Rand pays for privacy and for 80-query STARK soundness in bytes. |
+| **What gets "compressed"** | Proofs: GPU aggregators prove one recursive STARK over a window of *finalized* blocks ("sealing"), after which the inner proofs can be dropped. | Nothing yet. | At 1.3 MB per transfer Rand *must* aggregate. At 5.3 kB Canggu only benefits above ~300 signatures per proof (a production proof is ~1.3–1.6 MB). |
+| **Old history** | Rejected pruning: a syncing node would have to trust old finality signatures, which opens long-range attacks on a proof-carrying chain. | Substrate already trusts GRANDPA justifications for warp sync, so `--blocks-pruning` is consistent with its trust model. | Different trust models. Canggu's *storage* problem is solved by an existing node flag; its *bandwidth* problem is not. |
+| **Where the GPU sits** | Off the critical path: a permissionless aggregator market. Validators stay CPU-only. | Behind a host function on validators (optional), plus a CPU reference. | Both keep GPUs out of consensus requirements. Rand pays GPU owners for proofs; Canggu lets a validator use one to keep up. |
+| **Consensus signatures** | Chained HotStuff with **Dilithium2** votes: post-quantum end to end. | Aura (sr25519) + GRANDPA (ed25519): classical. | Rand wrote its own consensus. In Substrate, post-quantum session keys mean changing the keystore and the GRANDPA vote format. |
+| **Proof system** | Plonky3 STARKs (Goldilocks, Poseidon2, FRI): post-quantum and transparent | Groth16 / BLS12-381: small proofs, not post-quantum | Canggu kept v1.3's choice to have a working verifier. Rand shows the post-quantum one is practical. |
+| **Front-running** | Content privacy, but the leader still orders a plaintext mempool by fee then hash. The paper retracts "privacy eliminates front-running" (Prop. 14.2) and proves it only under three conditions (Thm. 15.4), which the live chain does not implement. | DAG dependencies, no tips, and now **sealed ordering**. | The theorem is the useful part, and it transfers to an account chain. |
+
+### What we took: sealed (order-then-reveal) ordering, `pallets/sealed-ordering/`
+
+Rand's Theorem 15.4 says front-running is eliminated only if (1) the order is fixed while contents
+are hidden, (2) there is exactly one valid order, and (3) what is visible before ordering doesn't
+distinguish transactions. Rand meets (1) with threshold encryption, which today is pairing-based
+and not post-quantum. Canggu uses hash commitments instead:
+
+1. **Commit** (block `N`): anyone, typically a relayer, posts `blake2_256(sender, call, salt)` with a
+   deposit. Every commitment is an opaque 32-byte hash, and with a relayer the sender is hidden too.
+2. **Reveal** (blocks `N+1..N+2`): the sender posts `(call, salt)`. The commitment binds the sender,
+   so nobody else can reveal or copy it.
+3. **Execute** (start of block `N+3`): every revealed call of block `N` runs in the order
+   `blake2_256(commitment ‖ hash of block N)`. Nobody chose this order, and it can't be computed at
+   commit time. A front-runner who reacts to a reveal can only commit in a later block, which
+   executes after.
+
+```
+$ canggu sealed
+  relayer committed 4 opaque 32-byte hashes in block(s) {3}: nobody can tell who pays whom
+  Dave revealed in block #4 (index 1)
+  Charlie revealed in block #4 (index 2)
+  Bob revealed in block #4 (index 3)
+  block #6: position 0: Bob (ok)
+  block #6: position 1: Dave (ok)
+  block #6: position 2: Charlie (ok)
+  block #6: Eve never revealed, deposit burned
+  ok: execution order = blake2(commitment ‖ commit-block hash), not reveal order
+```
+
+What commit-reveal concedes compared with threshold encryption:
+
+* A sender can decline to reveal (a "free option"). The deposit prices it.
+* A leader could censor reveals.
+* The leader of block `N` can nudge block `N`'s hash, though that only reshuffles commitments nobody
+  can read.
+* Back-running (acting *after* a revealed transaction) is not prevented.
+
+### What we did not take (yet): signature compression
+
+The Rand design gives the architecture: pipelined sealing over finalized blocks, a permissionless
+GPU aggregator market, "most coverage wins", and proofs bound to the aggregator's identity. It
+also gives the price. Rand measured 26 minutes to prove an aggregate of a single transfer (test profile, on a
+loaded shared machine) and ≥ 512 GB of host memory for a production one. For Canggu that means proving ML-DSA verification
+(SHAKE and NTTs, roughly 2 M RISC-V cycles per signature) inside a STARK, over windows of thousands
+of signatures. That's the next milestone, not something a laptop can demonstrate today.
+
+### Is `paritytech/verifiable` useful here?
+
+[`verifiable`](https://github.com/paritytech/verifiable) proves *membership in a set without
+revealing which member*. It uses ring VRFs on Bandersnatch (BLS12-381), with 752-byte proofs, one
+unlinkable 32-byte alias per member per context, and batch verification. For Canggu:
+
+* **Useful for front-running metadata.** A sealed commitment could carry a ring proof that it came
+  from some registered account, with one alias per epoch as a rate limit, instead of going through a
+  relayer. That's a stronger version of condition (3).
+* **Not useful for signature compression.** It provides anonymity, not aggregation. A ring proof
+  (752 B) is larger than a plain signature, and proofs don't combine into one.
+* **Not post-quantum.** Like Groth16, its security rests on elliptic curves. Its *trait*
+  (`GenerateVerifiable`: members, proofs, aliases) is crypto-agnostic, though, and could front a
+  post-quantum implementation, e.g. a STARK over a Poseidon2 Merkle tree with nullifiers, which is
+  how Rand's shielded pool works.
+
 ## Quick start
 
 ```bash
@@ -262,6 +347,7 @@ canggu zk-register --from //Bob
 canggu zk-prove --salt 7 --amounts 100,200,300
 canggu zk-submit --from //Bob
 canggu intents --count 640 --forge 4  # one batch of PQ-signed intents (GPU with --crypto-backend metal)
+canggu sealed                         # commit, reveal out of order, canonical execution
 canggu bench                          # native crypto benchmarks, no node needed
 ```
 
@@ -271,7 +357,8 @@ canggu bench                          # native crypto benchmarks, no node needed
 cargo test --release --workspace
 ```
 
-53 tests. Besides the GPU differential tests above, the runtime integration tests
+61 tests. Besides the GPU differential tests above and the sealed-ordering tests (canonical order
+independent of inclusion and reveal order, front-runners executing after their victims), the runtime integration tests
 (`runtime/tests/extrinsics.rs`) push real ML-DSA-signed extrinsics
 through `Executive`. They cover valid transfers, bit-flipped and key-substituted signatures
 (`BadProof`), a DAG child before its parent (`Future`), and tips (rejected).
@@ -285,6 +372,7 @@ through `Executive`. They cover valid transfers, bit-flipped and key-substituted
 | `pallets/zk-verifier/` | `pallet-zk-verifier` | Groth16 verifying keys and proofs |
 | `pallets/parallel-payroll/` | `pallet-parallel-payroll` | Conflict-free batch payments |
 | `pallets/pq-intents/` | `pallet-pq-intents` | Batches of ML-DSA-signed intents, one batch host call |
+| `pallets/sealed-ordering/` | `pallet-sealed-ordering` | Order-then-reveal commitments with canonical execution order |
 | `gpu/` | `canggu-gpu` | ML-DSA-65 batch verification on Apple Metal, CPU mirror, differential tests |
 | `gpu/bench/` | `canggu-gpu-bench` | Metal vs CPU benchmark |
 | `scripts/` | | `mixed-backends.sh`: two validators, GPU vs CPU, one chain |
@@ -301,9 +389,24 @@ This is a research prototype:
   Groth16 are still classical.
 * Weights are hand-set rather than benchmarked. The trusted setup is single-party and the circuit is
   unaudited.
-* The DAG enforces only the dependencies users declare. There is no encrypted mempool yet.
+* Front-running protection is commit-reveal, not threshold encryption: senders can decline to
+  reveal (and lose the deposit), and back-running is not prevented.
+* No signature compression yet. See the Rand section for what it takes.
 
 See [TODO.md](TODO.md) for the roadmap.
+
+## References and credits
+
+* **Canggu** design and whitepaper v1.3: Dendi Suhubdy, Tejveer Singh, Mitul Dhawan, Maldini Sonkeng
+  (Bitwyre). Original repository: Dendi Suhubdy and Mitul Dhawan.
+* **Rand Protocol** by Dendi Suhubdy: [full node](https://github.com/randprotocol/fullnode) and
+  [whitepaper](http://randprotocol.org/papers/randprotocol.pdf). Sealed ordering adapts its
+  Theorem 15.4 and Proposition 14.2. The aggregation analysis follows its `docs/aggregation.md` and
+  `docs/block-space.md`.
+* **[Polkadot SDK](https://github.com/paritytech/polkadot-sdk)** and
+  **[`verifiable`](https://github.com/paritytech/verifiable)**: Parity Technologies.
+* **[`ml-dsa`](https://crates.io/crates/ml-dsa)**: RustCrypto. **[arkworks](https://arkworks.rs)**
+  for Groth16.
 
 ## License
 
