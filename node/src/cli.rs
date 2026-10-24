@@ -16,6 +16,16 @@ pub struct Cli {
 	/// latency for a handful of signatures.
 	#[arg(long, default_value_t = 64, global = true)]
 	pub metal_min_batch: usize,
+
+	/// GRANDPA gossip duration in milliseconds. Lower values finalize sooner but must stay above
+	/// the network's message latency between validators.
+	#[arg(long, default_value_t = 333, global = true)]
+	pub grandpa_gossip_ms: u64,
+
+	/// Vote this many blocks behind the best block (Substrate's default: 2). Lower values finalize
+	/// sooner; 0 votes on the best block itself.
+	#[arg(long, default_value_t = 2, global = true)]
+	pub grandpa_vote_lag: u32,
 }
 
 #[derive(Debug, clap::Subcommand)]

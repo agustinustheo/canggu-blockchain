@@ -25,6 +25,15 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
+/// GRANDPA's gossip duration. A voter prevotes at most 2x and precommits at most 4x this long
+/// after a round starts, so it sets the floor of finality latency. Set with `--grandpa-gossip-ms`.
+pub static GRANDPA_GOSSIP: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
+
+/// How many blocks behind the best block GRANDPA votes (Substrate's default is 2, a safety margin
+/// against voting for blocks that are about to be reorganised away). Set with
+/// `--grandpa-vote-lag`. At 2 s blocks the default alone adds ~4 s to finality.
+pub static GRANDPA_VOTE_LAG: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+
 pub type Service = sc_service::PartialComponents<
 	FullClient,
 	FullBackend,
@@ -297,8 +306,7 @@ pub fn new_full<
 		let keystore = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
 
 		let grandpa_config = sc_consensus_grandpa::Config {
-			// FIXME #1578 make this available through chainspec
-			gossip_duration: Duration::from_millis(333),
+			gossip_duration: *GRANDPA_GOSSIP.get_or_init(|| Duration::from_millis(333)),
 			justification_generation_period: GRANDPA_JUSTIFICATION_PERIOD,
 			name: Some(name),
 			observer_enabled: false,
@@ -320,7 +328,16 @@ pub fn new_full<
 			network,
 			sync: Arc::new(sync_service),
 			notification_service: grandpa_notification_service,
-			voting_rule: sc_consensus_grandpa::VotingRulesBuilder::default().build(),
+			voting_rule: {
+				let lag = *GRANDPA_VOTE_LAG.get_or_init(|| 2);
+				let rules = sc_consensus_grandpa::VotingRulesBuilder::new()
+					.add(sc_consensus_grandpa::ThreeQuartersOfTheUnfinalizedChain);
+				if lag > 0 {
+					rules.add(sc_consensus_grandpa::BeforeBestBlockBy(lag)).build()
+				} else {
+					rules.build()
+				}
+			},
 			prometheus_registry,
 			shared_voter_state: SharedVoterState::empty(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),

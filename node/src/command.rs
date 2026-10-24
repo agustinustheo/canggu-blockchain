@@ -47,6 +47,8 @@ impl SubstrateCli for Cli {
 pub fn run() -> sc_cli::Result<()> {
 	let cli = Cli::from_args();
 	crate::accel::install(cli.crypto_backend, cli.metal_min_batch)?;
+	let _ = service::GRANDPA_GOSSIP.set(std::time::Duration::from_millis(cli.grandpa_gossip_ms));
+	let _ = service::GRANDPA_VOTE_LAG.set(cli.grandpa_vote_lag);
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
