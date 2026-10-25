@@ -11,6 +11,20 @@
 //!
 //! Each intent is executed independently: a bad signature, a stale nonce or a failing transfer
 //! rejects that intent (with an event) without affecting the rest of the batch.
+//!
+//! ## Signature compression ([`Pallet::submit_compressed`])
+//!
+//! A batch can instead arrive *without any keys or signatures*: just `(sender, intent)` pairs and
+//! one SP1 compressed proof (a hash-based STARK) that the `mldsa-batch` program
+//! (`sp1/programs/mldsa-batch`) verified every ML-DSA-65 signature off-chain, and that every key
+//! hashes to its sender. The runtime recomputes the program's public values itself:
+//!
+//! ```text
+//! n: u32 LE ‖ keccak256(ML_DSA_CONTEXT) ‖ keccak256( ‖_i sender_i ‖ keccak256(payload_i) )
+//! ```
+//!
+//! so the proof is bound to exactly these intents on exactly this chain. It replaces 5,261 bytes
+//! of key and signature per intent with one 1,272,546-byte proof: smaller from ~242 intents up.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -85,6 +99,10 @@ pub mod weights {
 	/// Single-core ML-DSA-65 verification (~61 µs) plus a transfer, with headroom. Charged at the
 	/// CPU price: an accelerated node is faster, but weights must hold for every validator.
 	pub const PER_INTENT: Weight = Weight::from_parts(150_000_000, 0);
+	/// One SP1 compressed-proof verification (25.5 ms measured), with headroom.
+	pub const SP1_VERIFY: Weight = Weight::from_parts(60_000_000_000, 0);
+	/// A compressed intent: payload hashing and a transfer, no signature check.
+	pub const PER_COMPRESSED_INTENT: Weight = Weight::from_parts(80_000_000, 0);
 }
 
 #[frame_support::pallet]
@@ -115,6 +133,15 @@ pub mod pallet {
 		/// Maximum number of intents in one batch.
 		#[pallet::constant]
 		type MaxIntents: Get<u32>;
+		/// Maximum number of intents in one compressed (proof-carrying) batch.
+		#[pallet::constant]
+		type MaxCompressedIntents: Get<u32>;
+		/// Maximum size of an SP1 compressed proof.
+		#[pallet::constant]
+		type MaxProofLen: Get<u32>;
+		/// vkey hash of the SP1 program that proves batches of ML-DSA-65 signatures.
+		#[pallet::constant]
+		type BatchProgram: Get<[u8; 32]>;
 	}
 
 	/// Next expected intent nonce per account (independent of the transaction nonce).
@@ -136,6 +163,8 @@ pub mod pallet {
 		NoIntents,
 		/// The host returned the wrong number of verdicts (a broken node backend).
 		VerdictCountMismatch,
+		/// The proof does not show that these intents were all signed by their senders.
+		InvalidBatchProof,
 	}
 
 	#[pallet::call]
@@ -184,15 +213,75 @@ pub mod pallet {
 			Self::deposit_event(Event::BatchExecuted { relayer, executed, rejected });
 			Ok(())
 		}
+
+		/// Execute a batch of intents authorized by one SP1 proof instead of per-intent keys and
+		/// signatures (see the crate docs). Fails as a whole if the proof does not match.
+		#[pallet::call_index(1)]
+		#[pallet::weight({
+			let n = intents.len() as u64;
+			weights::BASE
+				.saturating_add(weights::SP1_VERIFY)
+				.saturating_add(weights::PER_COMPRESSED_INTENT.saturating_mul(n))
+				.saturating_add(T::DbWeight::get().reads_writes(3 * n + 1, 3 * n))
+		})]
+		pub fn submit_compressed(
+			origin: OriginFor<T>,
+			intents: BoundedVec<(T::AccountId, IntentOf<T>), T::MaxCompressedIntents>,
+			proof: BoundedVec<u8, T::MaxProofLen>,
+		) -> DispatchResult {
+			let relayer = ensure_signed(origin)?;
+			ensure!(!intents.is_empty(), Error::<T>::NoIntents);
+			let public_values = Self::batch_public_values(&intents);
+			ensure!(
+				canggu_primitives::canggu_crypto::sp1_v6_verify_compressed(
+					&proof,
+					&public_values,
+					&T::BatchProgram::get(),
+				),
+				Error::<T>::InvalidBatchProof
+			);
+
+			let (mut executed, mut rejected) = (0u32, 0u32);
+			for (index, (from, intent)) in intents.into_iter().enumerate() {
+				match Self::execute_authorized(from, intent) {
+					Ok(()) => executed += 1,
+					Err(reason) => {
+						rejected += 1;
+						Self::deposit_event(Event::IntentRejected { index: index as u32, reason });
+					},
+				}
+			}
+			Self::deposit_event(Event::BatchExecuted { relayer, executed, rejected });
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// The public values `mldsa-batch` must have committed for these intents.
+		pub fn batch_public_values(intents: &[(T::AccountId, IntentOf<T>)]) -> Vec<u8> {
+			use sp_io::hashing::keccak_256;
+			let genesis = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
+			let mut entries = Vec::with_capacity(64 * intents.len());
+			for (from, intent) in intents {
+				entries.extend_from_slice(from.as_ref());
+				entries.extend_from_slice(&keccak_256(&signing_payload(&genesis, intent)));
+			}
+			let mut out = (intents.len() as u32).to_le_bytes().to_vec();
+			out.extend_from_slice(&keccak_256(canggu_primitives::ML_DSA_CONTEXT));
+			out.extend_from_slice(&keccak_256(&entries));
+			out
+		}
+
 		fn execute(signed: SignedIntentOf<T>, valid: bool) -> Result<(), RejectReason> {
 			if !valid {
 				return Err(RejectReason::BadSignature);
 			}
-			let from = signed.public.to_account_id();
-			let Intent { to, amount, nonce } = signed.intent;
+			Self::execute_authorized(signed.public.to_account_id(), signed.intent)
+		}
+
+		/// Execute an intent whose authorization has already been checked.
+		fn execute_authorized(from: T::AccountId, intent: IntentOf<T>) -> Result<(), RejectReason> {
+			let Intent { to, amount, nonce } = intent;
 			if nonce != Nonces::<T>::get(&from) {
 				return Err(RejectReason::BadNonce);
 			}

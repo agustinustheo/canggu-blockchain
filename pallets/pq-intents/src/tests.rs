@@ -26,9 +26,16 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+frame_support::parameter_types! {
+	pub const BatchProgram: [u8; 32] = canggu_primitives::sp1::MLDSA_BATCH_VKEY_HASH;
+}
+
 impl Config for Test {
 	type Currency = Balances;
 	type MaxIntents = ConstU32<64>;
+	type MaxCompressedIntents = ConstU32<64>;
+	type MaxProofLen = ConstU32<{ 2 * 1024 * 1024 }>;
+	type BatchProgram = BatchProgram;
 }
 
 fn alice() -> MlDsa65Pair {
@@ -140,5 +147,114 @@ fn intents_are_bound_to_the_chain() {
 fn empty_batch_is_an_error() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(submit(vec![]), Error::<Test>::NoIntents);
+	});
+}
+
+// ---- Signature compression with SP1 ----------------------------------------------------------
+
+type Batch = Vec<(AccountId32, IntentOf<Test>)>;
+
+/// The batch proven in `fixtures/compressed-n4.proof`.
+fn compressed_batch() -> Batch {
+	vec![
+		(alice().account_id(), Intent { to: bob().account_id(), amount: 100, nonce: 0 }),
+		(alice().account_id(), Intent { to: bob().account_id(), amount: 50, nonce: 1 }),
+		(bob().account_id(), Intent { to: alice().account_id(), amount: 10, nonce: 0 }),
+		(bob().account_id(), Intent { to: relayer(), amount: 7, nonce: 1 }),
+	]
+}
+
+const COMPRESSED_PROOF: &[u8] = include_bytes!("../fixtures/compressed-n4.proof");
+const COMPRESSED_PV: &[u8] = include_bytes!("../fixtures/compressed-n4.pv");
+
+fn submit_compressed(intents: Batch, proof: &[u8]) -> frame_support::dispatch::DispatchResult {
+	Intents::submit_compressed(
+		RuntimeOrigin::signed(relayer()),
+		intents.try_into().unwrap(),
+		proof.to_vec().try_into().unwrap(),
+	)
+}
+
+/// Regenerate the fixture's prover input:
+/// `cargo test --release -p pallet-pq-intents -- --ignored write_compressed_fixture_input`, then
+/// `canggu-sp1 prove mldsa fixtures/compressed-n4.input fixtures/compressed-n4` (see sp1/).
+#[test]
+#[ignore]
+fn write_compressed_fixture_input() {
+	new_test_ext().execute_with(|| {
+		let genesis = System::block_hash(0);
+		let keys = |who: &AccountId32| if *who == alice().account_id() { alice() } else { bob() };
+		let prefixed = |out: &mut Vec<u8>, bytes: &[u8]| {
+			out.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+			out.extend_from_slice(bytes);
+		};
+		let batch = compressed_batch();
+		let mut input = vec![];
+		prefixed(&mut input, canggu_primitives::ML_DSA_CONTEXT);
+		input.extend_from_slice(&(batch.len() as u32).to_le_bytes());
+		for (from, intent) in &batch {
+			let message = signing_payload(&genesis, intent);
+			let pair = keys(from);
+			prefixed(&mut input, &pair.public().0);
+			prefixed(&mut input, &message);
+			prefixed(&mut input, &pair.sign_raw(&message).0);
+		}
+		std::fs::write(concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/compressed-n4.input"), input)
+			.unwrap();
+	});
+}
+
+#[test]
+fn runtime_recomputes_the_proven_public_values() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Intents::batch_public_values(&compressed_batch()), COMPRESSED_PV);
+	});
+}
+
+#[test]
+fn compressed_batch_executes_without_any_signature_on_chain() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(submit_compressed(compressed_batch(), COMPRESSED_PROOF));
+		assert_eq!(Balances::free_balance(alice().account_id()), 1_000 - 150 + 10);
+		assert_eq!(Balances::free_balance(bob().account_id()), 1_000 + 150 - 10 - 7);
+		assert_eq!(Nonces::<Test>::get(bob().account_id()), 2);
+		System::assert_last_event(
+			Event::BatchExecuted { relayer: relayer(), executed: 4, rejected: 0 }.into(),
+		);
+		// Replaying the same proven batch: the proof still verifies, the nonces do not.
+		assert_ok!(submit_compressed(compressed_batch(), COMPRESSED_PROOF));
+		System::assert_last_event(
+			Event::BatchExecuted { relayer: relayer(), executed: 0, rejected: 4 }.into(),
+		);
+	});
+}
+
+#[test]
+fn compressed_proof_is_bound_to_every_sender_and_intent() {
+	new_test_ext().execute_with(|| {
+		let tamper = |f: &dyn Fn(&mut Batch)| {
+			let mut batch = compressed_batch();
+			f(&mut batch);
+			submit_compressed(batch, COMPRESSED_PROOF)
+		};
+		assert_noop!(tamper(&|b| b[0].1.amount = 999), Error::<Test>::InvalidBatchProof);
+		assert_noop!(tamper(&|b| b[2].0 = relayer()), Error::<Test>::InvalidBatchProof);
+		assert_noop!(
+			tamper(&|b| b[3].1.to = alice().account_id()),
+			Error::<Test>::InvalidBatchProof
+		);
+		assert_noop!(
+			tamper(&|b| {
+				b.pop();
+			}),
+			Error::<Test>::InvalidBatchProof
+		);
+		assert_noop!(tamper(&|b| b.swap(0, 1)), Error::<Test>::InvalidBatchProof);
+		let mut padded = COMPRESSED_PROOF.to_vec();
+		padded.push(0);
+		assert_noop!(
+			submit_compressed(compressed_batch(), &padded),
+			Error::<Test>::InvalidBatchProof
+		);
 	});
 }
