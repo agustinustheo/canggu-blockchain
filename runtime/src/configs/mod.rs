@@ -150,6 +150,8 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_zk_verifier::Config for Runtime {
 	type MaxVerifyingKeyLen = ConstU32<{ 16 * 1024 }>;
 	type MaxPublicInputs = ConstU32<32>;
+	/// SP1 v6.10 compressed proofs are 1,272,546 bytes.
+	type MaxSp1ProofLen = ConstU32<{ 2 * 1024 * 1024 }>;
 }
 
 impl pallet_parallel_payroll::Config for Runtime {
@@ -185,8 +187,16 @@ impl pallet_sealed_ordering::Config for Runtime {
 	type MaxCallWeight = SealedMaxCallWeight;
 }
 
+parameter_types! {
+	pub const MlDsaBatchProgram: [u8; 32] = canggu_primitives::sp1::MLDSA_BATCH_VKEY_HASH;
+}
+
 impl pallet_pq_intents::Config for Runtime {
 	type Currency = Balances;
 	// ~5.3 kB per signed intent: 640 of them fit in the normal-class share of a 5 MiB block.
 	type MaxIntents = ConstU32<640>;
+	// ~90 B per compressed intent plus one 1.27 MB proof.
+	type MaxCompressedIntents = ConstU32<4096>;
+	type MaxProofLen = ConstU32<{ 2 * 1024 * 1024 }>;
+	type BatchProgram = MlDsaBatchProgram;
 }
