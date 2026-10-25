@@ -21,10 +21,10 @@ rebuild. See the README for details.
 - [ ] Threshold-encrypted mempool (removes the commit-reveal free option; needs post-quantum
       threshold decryption)
 - [ ] Anonymous commitments via ring proofs (`paritytech/verifiable`) instead of relayers
-- [ ] Signature compression: STARK over a window of ML-DSA verifications, sealed by GPU
-      aggregators (Rand Protocol's aggregation design)
+- [x] Signature compression: one SP1 proof per intent batch (works; breaks even at ~242 sigs)
+- [ ] Windowed aggregation by a GPU prover market (Rand Protocol's design), CUDA provers
 - [x] ZK-SNARKs: proof generation (off-chain) and on-chain Groth16 verification
-- [ ] Post-quantum proofs (STARKs); BLS12-381 is not quantum-resistant
+- [x] Post-quantum proofs: SP1 compressed STARKs next to Groth16
 - [x] Explore NIST post-quantum crypto papers: Kyber, Dilithium specs
 
 ## GPU (originally "CUDA")

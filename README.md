@@ -52,10 +52,11 @@ All Canggu features exercised successfully.
 | MEV mitigation | Dependency enforcement + **no tips** + **sealed order-then-reveal** ([from Rand](#lessons-from-rand-protocol-why-it-is-built-differently-and-what-we-took)) | 🟡 commit-reveal, not threshold encryption |
 | Tower-BFT-style leader consensus | Aura (2 s round-robin leader slots) + GRANDPA finality | ✅ |
 | Sub-second finality | Tuned GRANDPA: **242 ms** p50 on localhost ([measured](#sub-second-finality-how-far-can-grandpa-go)) | 🟡 not tested over a real network |
-| ZK-SNARK verifiers / provers | Groth16 verifier pallet + host function; off-chain prover | ✅ (not post-quantum) |
+| ZK-SNARK verifiers / provers | Groth16 **and post-quantum SP1 STARKs**, each behind a host function; off-chain provers | ✅ |
+| Signature compression | One SP1 proof replaces every key and signature of an intent batch ([SP1](#post-quantum-proofs-and-signature-compression-with-sp1)) | 🟡 works; pays off only above ~242 signatures |
 | GPU acceleration | Batch ML-DSA verification on **Apple Metal**, behind a runtime host function | ✅ |
 | Parallel CPU/GPU contracts | Conflict-free batch payroll; general GPU contracts are not deterministic | 🟡 |
-| 50,000+ TPS | Measured: bandwidth-bound at ~370 PQ transfers/s | ❌ needs signature compression |
+| 50,000+ TPS | Measured: bandwidth-bound at ~370 PQ transfers/s | ❌ needs compression with GPU provers |
 
 ## Architecture
 
@@ -112,8 +113,9 @@ swap a CPU implementation for a GPU one without changing consensus.
 * `ChargeTransactionPaymentNoTip` is the stock fee extension with tips rejected. Priority can no
   longer be bought.
 
-### zk-SNARKs: `pallets/zk-verifier/`, `zk/`
-* Circuit-agnostic Groth16/BLS12-381 verifier pallet. Verified `(vk, inputs)` statements are recorded.
+### zk-SNARKs: `pallets/zk-verifier/`, `zk/`, `sp1/`
+* Circuit-agnostic verifier pallet with two proof systems: Groth16/BLS12-381 (192-byte proofs, not
+  post-quantum) and SP1 compressed STARKs (1.27 MB, post-quantum). Verified statements are recorded.
 * Example *private payroll* circuit: prove that hidden 64-bit salaries sum to a public total and open
   a public MiMC commitment, without revealing any salary.
 
@@ -241,6 +243,59 @@ Why signatures? ML-DSA verification is mostly SHAKE128 matrix expansion and numb
 transforms: integer-only, embarrassingly parallel, and exactly what makes post-quantum accounts
 expensive. That makes it the GPU workload that matters most for this design.
 
+## Post-quantum proofs and signature compression with SP1
+
+Two gaps were left: the ZK pillar used Groth16 (pairings, broken by Shor's algorithm), and nothing
+compressed the 5.3 kB of key and signature every post-quantum transaction carries.
+[SP1](https://github.com/succinctlabs/sp1) v6.10 closes both. It proves ordinary Rust programs
+(compiled to RISC-V) into **compressed proofs**: hash-based STARKs with no elliptic curves. The node
+verifies them with one more host function, `sp1_v6_verify_compressed`. The programs, prover and
+measurements live in [`sp1/`](sp1/README.md).
+
+* **Post-quantum ZK.** `sp1/programs/payroll` proves the payroll statement (private salaries sum
+  to a public total and open a commitment). `pallet-zk-verifier::submit_sp1_proof` accepts it next
+  to the old Groth16 path.
+* **Signature compression.** `sp1/programs/mldsa-batch` runs ML-DSA-65 verification inside SP1,
+  bit-exact with the `ml-dsa` crate, with Keccak on SP1's precompile. It commits a digest of
+  `(sender, keccak(payload))` pairs. `pallet-pq-intents::submit_compressed` then takes a batch with
+  **no keys and no signatures**, rebuilds that digest from the intents and the genesis hash, and
+  checks the one proof.
+
+```
+$ canggu zk-sp1 --from //Alice --salt "october payroll" --amounts 3000,4500,1250,8000,2200
+payroll proved: 6137 cycles, 1272546 byte proof, 59.2 s
+  submitting a 1.28 MB post-quantum proof
+  ok: the chain verified that 5 private salaries sum to 18950
+
+$ canggu intents --count 8 --senders 4 --compressed
+mldsa-batch proved: 5611080 cycles, 1272546 byte proof, 112.7 s
+  relayer submits 1.28 MB (one SP1 proof, no keys or signatures) instead of 0.04 MB
+  block #91: 8 intents executed, 0 rejected {}
+
+node: 🔐 SP1 compressed proof (1272546 bytes): valid in 41.95ms
+```
+
+The numbers are the research result (Apple M4 Pro, CPU prover):
+
+| | |
+| --- | --- |
+| Proof size | 1,272,546 B, whatever the program or batch size |
+| Verification | 25.5 ms natively, ~40 ms through the node's host function |
+| ML-DSA-65 inside SP1 | 700k cycles per signature with the Keccak precompile (1.8 M without) |
+| Proving `mldsa-batch` | ~9.4 s per signature: 4 sigs 72 s, 64 sigs 617 s, 128 sigs 1,219 s |
+| Break-even | **≈ 242 signatures** per proof, about 37 minutes to prove on this laptop |
+
+So signature compression **works end to end but doesn't pay on a laptop**. The 8-intent demo batch
+is 30× *bigger* than the signatures it replaces. It needs GPU provers (SP1's is CUDA-only) and
+batches of hundreds of signatures, which is exactly why Rand Protocol pipelines aggregation through
+a GPU market. Two more findings:
+
+* **Proof malleability.** The raw `sp1-verifier` accepts several byte strings for one valid proof
+  (trailing bytes, field elements ≥ p). Canggu's wrapper requires the canonical encoding, and a test
+  shows the difference.
+* **Not runtime-ready.** The verifier doesn't build for `wasm32v1-none`, the polkadot-sdk runtime
+  target, which is why it sits behind a host function.
+
 ## Sub-second finality: how far can GRANDPA go?
 
 Canggu v1.3 asks for "sub-second finality". Substrate's defaults finalize about 5 seconds after a
@@ -293,11 +348,11 @@ Canggu, like every Polkadot SDK chain, is an **account chain**.
 | --- | --- | --- | --- |
 | **Authorizing a transfer** | No signature. A STARK proves "I own these notes" (spend authority is inside the proof). | An ML-DSA-65 signature per transaction. | A signature names its signer and links its transactions, which a privacy chain can't allow. An account chain has public senders anyway, and a signature is about 250× smaller and about 130,000× faster to produce (5.3 kB in 0.75 ms, against ~1.3 MB in ~100 s). |
 | **Cost per transfer** | ~1.3 MB, about 3 transfers per 4 MiB block | 5.3 kB, about 740 per block | Rand pays for privacy and for 80-query STARK soundness in bytes. |
-| **What gets "compressed"** | Proofs: GPU aggregators prove one recursive STARK over a window of *finalized* blocks ("sealing"), after which the inner proofs can be dropped. | Nothing yet. | At 1.3 MB per transfer Rand *must* aggregate. At 5.3 kB Canggu only benefits above ~300 signatures per proof (a production proof is ~1.3–1.6 MB). |
+| **What gets "compressed"** | Proofs: GPU aggregators prove one recursive STARK over a window of *finalized* blocks ("sealing"), after which the inner proofs can be dropped. | Signatures, per intent batch, with one SP1 proof. | At 1.3 MB per transfer Rand *must* aggregate. At 5.3 kB Canggu only benefits above ~300 signatures per proof (a production proof is ~1.3–1.6 MB). |
 | **Old history** | Rejected pruning: a syncing node would have to trust old finality signatures, which opens long-range attacks on a proof-carrying chain. | Substrate already trusts GRANDPA justifications for warp sync, so `--blocks-pruning` is consistent with its trust model. | Different trust models. Canggu's *storage* problem is solved by an existing node flag; its *bandwidth* problem is not. |
 | **Where the GPU sits** | Off the critical path: a permissionless aggregator market. Validators stay CPU-only. | Behind a host function on validators (optional), plus a CPU reference. | Both keep GPUs out of consensus requirements. Rand pays GPU owners for proofs; Canggu lets a validator use one to keep up. |
 | **Consensus signatures** | Chained HotStuff with **Dilithium2** votes: post-quantum end to end. | Aura (sr25519) + GRANDPA (ed25519): classical. | Rand wrote its own consensus. In Substrate, post-quantum session keys mean changing the keystore and the GRANDPA vote format. |
-| **Proof system** | Plonky3 STARKs (Goldilocks, Poseidon2, FRI): post-quantum and transparent | Groth16 / BLS12-381: small proofs, not post-quantum | Canggu kept v1.3's choice to have a working verifier. Rand shows the post-quantum one is practical. |
+| **Proof system** | Plonky3 STARKs (Goldilocks, Poseidon2, FRI): post-quantum and transparent | Groth16 / BLS12-381, plus SP1 STARKs (KoalaBear, Poseidon2, FRI) | Both chains end up on hash-based STARKs of ~1.3 MB. |
 | **Front-running** | Content privacy, but the leader still orders a plaintext mempool by fee then hash. The paper retracts "privacy eliminates front-running" (Prop. 14.2) and proves it only under three conditions (Thm. 15.4), which the live chain does not implement. | DAG dependencies, no tips, and now **sealed ordering**. | The theorem is the useful part, and it transfers to an account chain. |
 
 ### What we took: sealed (order-then-reveal) ordering, `pallets/sealed-ordering/`
@@ -337,14 +392,15 @@ What commit-reveal concedes compared with threshold encryption:
   can read.
 * Back-running (acting *after* a revealed transaction) is not prevented.
 
-### What we did not take (yet): signature compression
+### What we took later: signature compression, without the market
 
-The Rand design gives the architecture: pipelined sealing over finalized blocks, a permissionless
-GPU aggregator market, "most coverage wins", and proofs bound to the aggregator's identity. It
-also gives the price. Rand measured 26 minutes to prove an aggregate of a single transfer (test profile, on a
-loaded shared machine) and ≥ 512 GB of host memory for a production one. For Canggu that means proving ML-DSA verification
-(SHAKE and NTTs, roughly 2 M RISC-V cycles per signature) inside a STARK, over windows of thousands
-of signatures. That's the next milestone, not something a laptop can demonstrate today.
+Rand's design gives the architecture: pipelined sealing over finalized blocks, a permissionless GPU
+aggregator market, "most coverage wins", and proofs bound to the aggregator's identity. It also
+gives the price. Rand measured 26 minutes to prove an aggregate of a single transfer (test
+profile, on a loaded shared machine) and ≥ 512 GB of host memory for a production one. Canggu now
+has the core of it, an SP1 proof that replaces a batch's signatures ([above](#post-quantum-proofs-and-signature-compression-with-sp1)),
+and measured the same lesson: a laptop CPU needs ~37 minutes to reach the ~242-signature
+break-even. The windowed, pipelined aggregator market is what would make it pay. It isn't built.
 
 ### Is `paritytech/verifiable` useful here?
 
@@ -390,6 +446,8 @@ canggu zk-submit --from //Bob
 canggu intents --count 640 --forge 4  # one batch of PQ-signed intents (GPU with --crypto-backend metal)
 canggu sealed                         # commit, reveal out of order, canonical execution
 canggu finality --seconds 40          # time from a block's appearance to its finalization
+canggu zk-sp1 --from //Alice --salt s --amounts 3000,4500   # post-quantum payroll proof (SP1)
+canggu intents --count 8 --compressed # one SP1 proof instead of 8 keys + signatures
 canggu bench                          # native crypto benchmarks, no node needed
 ```
 
@@ -399,7 +457,8 @@ canggu bench                          # native crypto benchmarks, no node needed
 cargo test --release --workspace
 ```
 
-61 tests. Besides the GPU differential tests above and the sealed-ordering tests (canonical order
+66 tests (plus the `sp1/` workspace's own). They include real SP1 proofs, the GPU differential
+tests above, and the sealed-ordering tests (canonical order
 independent of inclusion and reveal order, front-runners executing after their victims), the runtime integration tests
 (`runtime/tests/extrinsics.rs`) push real ML-DSA-signed extrinsics
 through `Executive`. They cover valid transfers, bit-flipped and key-substituted signatures
@@ -418,6 +477,7 @@ through `Executive`. They cover valid transfers, bit-flipped and key-substituted
 | `gpu/` | `canggu-gpu` | ML-DSA-65 batch verification on Apple Metal, CPU mirror, differential tests |
 | `gpu/bench/` | `canggu-gpu-bench` | Metal vs CPU benchmark |
 | `scripts/` | | `mixed-backends.sh`: GPU vs CPU validators; `finality.sh`: time to finality |
+| `sp1/` | separate workspace | SP1 programs (`mldsa-batch`, `payroll`), `canggu-sp1` prover, `canggu-sp1-verify` |
 | `zk/` | `canggu-zk` | Private payroll circuit, setup, proving |
 | `runtime/` | `canggu-runtime` | FRAME runtime |
 | `node/` | `canggu-node` | Aura + GRANDPA node with Canggu host functions |
@@ -427,13 +487,14 @@ through `Executive`. They cover valid transfers, bit-flipped and key-substituted
 
 This is a research prototype:
 
-* Only *account* signatures are post-quantum. Aura/GRANDPA session keys, the p2p handshake and
-  Groth16 are still classical.
+* Only *account* signatures and SP1 proofs are post-quantum. Aura/GRANDPA session keys, the p2p
+  handshake and the Groth16 path are still classical.
 * Weights are hand-set rather than benchmarked. The trusted setup is single-party and the circuit is
   unaudited.
 * Front-running protection is commit-reveal, not threshold encryption: senders can decline to
   reveal (and lose the deposit), and back-running is not prevented.
-* No signature compression yet. See the Rand section for what it takes.
+* Signature compression is per batch and proven on a CPU, so it is a net loss below ~242 signatures.
+  There is no GPU prover market or windowed aggregation.
 
 See [TODO.md](TODO.md) for the roadmap.
 
@@ -447,6 +508,8 @@ See [TODO.md](TODO.md) for the roadmap.
   `docs/block-space.md`.
 * **[Polkadot SDK](https://github.com/paritytech/polkadot-sdk)** and
   **[`verifiable`](https://github.com/paritytech/verifiable)**: Parity Technologies.
+* **[SP1](https://github.com/succinctlabs/sp1)**: Succinct Labs, for post-quantum proofs and
+  signature compression.
 * **[`ml-dsa`](https://crates.io/crates/ml-dsa)**: RustCrypto. **[arkworks](https://arkworks.rs)**
   for Groth16.
 
