@@ -110,6 +110,20 @@ enum Command {
 		/// Tamper with this many intents after signing; they must be rejected.
 		#[arg(long, default_value_t = 0)]
 		forge: usize,
+		/// Signature compression: prove all signatures with SP1 (`canggu-sp1`, or the binary in
+		/// `CANGGU_SP1_PROVER`) and submit only senders, intents and the proof.
+		#[arg(long)]
+		compressed: bool,
+	},
+	/// Post-quantum payroll proof: private salaries sum to a public total (SP1 STARK).
+	ZkSp1 {
+		#[arg(long)]
+		from: String,
+		/// Any string; hashed into the commitment's 32-byte salt.
+		#[arg(long)]
+		salt: String,
+		#[arg(long, value_delimiter = ',')]
+		amounts: Vec<u64>,
 	},
 	/// Sealed (order-then-reveal) ordering: a relayer commits hashes, senders reveal in reverse
 	/// order, and the chain executes in a canonical order nobody chose.
@@ -226,8 +240,12 @@ fn main() -> Result<()> {
 			let nonce = chain.rpc.next_nonce(&signer.account_id())?;
 			report(&chain.submit_and_wait(&chain.sign(&signer, call, nonce, vec![], 0)?)?)
 		},
-		Command::Intents { relayer, count, senders, forge } => {
-			intents(&Chain::connect(&cli.url)?, &pair(&relayer)?, count, senders, forge).map(|_| ())
+		Command::ZkSp1 { from, salt, amounts } => {
+			zk_sp1(&Chain::connect(&cli.url)?, &pair(&from)?, &salt, &amounts)
+		},
+		Command::Intents { relayer, count, senders, forge, compressed } => {
+			intents(&Chain::connect(&cli.url)?, &pair(&relayer)?, count, senders, forge, compressed)
+				.map(|_| ())
 		},
 		Command::Sealed { relayer } => sealed(&Chain::connect(&cli.url)?, &pair(&relayer)?),
 		Command::Finality { seconds } => finality(&rpc::Rpc::new(&cli.url), seconds),
@@ -467,7 +485,7 @@ fn demo(chain: &Chain) -> Result<()> {
 	println!("  same proof, claimed total + 1: rejected with {failure}");
 
 	step("6. Post-quantum intents: one batch, one (GPU-accelerable) host call");
-	let (executed, rejected) = intents(chain, &alice, 64, 16, 2)?;
+	let (executed, rejected) = intents(chain, &alice, 64, 16, 2, false)?;
 	ensure!((executed, rejected) == (62, 2), "unexpected batch outcome");
 
 	step("7. Sealed ordering: commit hashes, reveal later, canonical execution order");
@@ -534,6 +552,7 @@ fn intents(
 	count: usize,
 	senders: usize,
 	forge: usize,
+	compressed: bool,
 ) -> Result<(u32, u32)> {
 	use pallet_pq_intents::{Intent, SignedIntent};
 	use rayon::prelude::*;
@@ -601,17 +620,47 @@ fn intents(
 		intent.intent.amount += 1;
 	}
 
-	let call = RuntimeCall::Intents(pallet_pq_intents::Call::submit_intents {
-		intents: batch
-			.try_into()
-			.map_err(|_| anyhow::anyhow!("too many intents for one batch"))?,
-	});
+	let signed_size = RuntimeCall::Intents(pallet_pq_intents::Call::submit_intents {
+		intents: batch.clone().try_into().unwrap_or_default(),
+	})
+	.encoded_size();
+	let call = if compressed {
+		ensure!(forge == 0, "a batch with forged signatures cannot be proven");
+		let items: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = batch
+			.iter()
+			.map(|s| {
+				let message = pallet_pq_intents::signing_payload(&genesis, &s.intent);
+				(s.public.0.to_vec(), message, s.signature.0.to_vec())
+			})
+			.collect();
+		let (proof, _) = run_sp1_prover("mldsa", &mldsa_batch_input(&items))?;
+		let intents: Vec<(AccountId, Intent<AccountId, Balance>)> =
+			batch.into_iter().map(|s| (s.public.to_account_id(), s.intent)).collect();
+		RuntimeCall::Intents(pallet_pq_intents::Call::submit_compressed {
+			intents: intents.try_into().map_err(|_| anyhow::anyhow!("too many intents"))?,
+			proof: proof.try_into().map_err(|_| anyhow::anyhow!("proof too large"))?,
+		})
+	} else {
+		RuntimeCall::Intents(pallet_pq_intents::Call::submit_intents {
+			intents: batch
+				.try_into()
+				.map_err(|_| anyhow::anyhow!("too many intents for one batch"))?,
+		})
+	};
 	let nonce = chain.rpc.next_nonce(&relayer.account_id())?;
 	let xt = chain.sign(relayer, call, nonce, vec![], 0)?;
-	println!(
-		"  relayer submits one {:.2} MB extrinsic; the node's log shows which backend verified it",
-		xt.encoded_size() as f64 / 1e6
-	);
+	if compressed {
+		println!(
+			"  relayer submits {:.2} MB (one SP1 proof, no keys or signatures) instead of {:.2} MB",
+			xt.encoded_size() as f64 / 1e6,
+			signed_size as f64 / 1e6
+		);
+	} else {
+		println!(
+			"  relayer submits one {:.2} MB extrinsic; the node's log shows which backend verified it",
+			xt.encoded_size() as f64 / 1e6
+		);
+	}
 	let included = chain.submit_and_wait(&xt)?;
 	if let Some(failure) = included.failure() {
 		bail!("batch failed: {failure}");
@@ -799,5 +848,71 @@ fn finality(rpc: &rpc::Rpc, seconds: u64) -> Result<()> {
 		pick(0.9),
 		latencies.last().unwrap()
 	);
+	Ok(())
+}
+
+/// The `mldsa-batch` guest input: `ctx`, then `n` prefixed `(public key, message, signature)`.
+fn mldsa_batch_input(items: &[(Vec<u8>, Vec<u8>, Vec<u8>)]) -> Vec<u8> {
+	fn prefixed(out: &mut Vec<u8>, bytes: &[u8]) {
+		out.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+		out.extend_from_slice(bytes);
+	}
+	let mut input = vec![];
+	prefixed(&mut input, canggu_primitives::ML_DSA_CONTEXT);
+	input.extend_from_slice(&(items.len() as u32).to_le_bytes());
+	for (public, message, signature) in items {
+		prefixed(&mut input, public);
+		prefixed(&mut input, message);
+		prefixed(&mut input, signature);
+	}
+	input
+}
+
+/// Run the external SP1 prover (`sp1/`) and return `(proof, public values)`.
+fn run_sp1_prover(program: &str, input: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+	let dir = std::env::temp_dir().join(format!("canggu-sp1-{}", std::process::id()));
+	std::fs::create_dir_all(&dir)?;
+	let (input_path, prefix) = (dir.join("input.bin"), dir.join("out"));
+	std::fs::write(&input_path, input)?;
+	let prover = std::env::var("CANGGU_SP1_PROVER").unwrap_or_else(|_| "canggu-sp1".into());
+	println!("  proving with SP1 on this machine's CPU ({prover}); this takes minutes...");
+	let started = Instant::now();
+	let status = std::process::Command::new(&prover)
+		.arg("prove")
+		.arg(program)
+		.arg(&input_path)
+		.arg(&prefix)
+		.status()
+		.with_context(|| format!("running {prover}; build it in sp1/ or set CANGGU_SP1_PROVER"))?;
+	ensure!(status.success(), "{prover} failed");
+	let proof = std::fs::read(prefix.with_extension("proof"))?;
+	let public_values = std::fs::read(prefix.with_extension("pv"))?;
+	println!("  proof ready after {:.1?}", started.elapsed());
+	let _ = std::fs::remove_dir_all(&dir);
+	Ok((proof, public_values))
+}
+
+/// Post-quantum payroll: prove with SP1 that private salaries sum to a public total.
+fn zk_sp1(chain: &Chain, from: &MlDsa65Pair, salt: &str, amounts: &[u64]) -> Result<()> {
+	ensure!(!amounts.is_empty(), "give at least one amount");
+	let salt =
+		<sp_runtime::traits::BlakeTwo256 as sp_runtime::traits::Hash>::hash(salt.as_bytes()).0;
+	let mut input = salt.to_vec();
+	input.extend_from_slice(&(amounts.len() as u32).to_le_bytes());
+	amounts.iter().for_each(|a| input.extend_from_slice(&a.to_le_bytes()));
+	let (proof, public_values) = run_sp1_prover("payroll", &input)?;
+	ensure!(public_values.len() == 52, "unexpected payroll public values");
+	let total = u128::from_le_bytes(public_values[4..20].try_into()?);
+
+	let call = RuntimeCall::ZkVerifier(pallet_zk_verifier::Call::submit_sp1_proof {
+		program: canggu_primitives::sp1::PAYROLL_VKEY_HASH,
+		public_values: public_values.try_into().map_err(|_| anyhow::anyhow!("too long"))?,
+		proof: proof.try_into().map_err(|_| anyhow::anyhow!("proof too large"))?,
+	});
+	let nonce = chain.rpc.next_nonce(&from.account_id())?;
+	let xt = chain.sign(from, call, nonce, vec![], 0)?;
+	println!("  submitting a {:.2} MB post-quantum proof", xt.encoded_size() as f64 / 1e6);
+	report(&chain.submit_and_wait(&xt)?)?;
+	println!("  ok: the chain verified that {} private salaries sum to {total}", amounts.len());
 	Ok(())
 }
