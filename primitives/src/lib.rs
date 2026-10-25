@@ -202,6 +202,31 @@ pub trait CangguCrypto {
 		crate::accel::verify_batch(&items, ML_DSA_CONTEXT)
 	}
 
+	/// Verify an SP1 v6.10 *compressed* proof: a hash-based STARK (KoalaBear field, Poseidon2
+	/// Merkle commitments, FRI), with no pairings or elliptic curves, so unlike Groth16 it is
+	/// plausibly post-quantum. `vkey_hash` identifies the SP1 program (32 bytes, see [`sp1`]);
+	/// `public_values` are the bytes the program committed. Non-canonical encodings of a valid
+	/// proof are rejected, so a valid proof has exactly one accepted byte string.
+	///
+	/// The verifier version is part of this function's contract: a new SP1 release means a new
+	/// host function, never a silent change behind this one.
+	fn sp1_v6_verify_compressed(
+		proof: PassFatPointerAndRead<&[u8]>,
+		public_values: PassFatPointerAndRead<&[u8]>,
+		vkey_hash: PassFatPointerAndRead<&[u8]>,
+	) -> bool {
+		let started = std::time::Instant::now();
+		let valid = canggu_sp1_verify::verify(proof, public_values, vkey_hash);
+		log::info!(
+			target: "canggu-sp1",
+			"🔐 SP1 compressed proof ({} bytes): {} in {:.2?}",
+			proof.len(),
+			if valid { "valid" } else { "REJECTED" },
+			started.elapsed(),
+		);
+		valid
+	}
+
 	/// Verify a Groth16 proof on BLS12-381.
 	///
 	/// * `vk`: arkworks compressed `VerifyingKey<Bls12_381>`.
@@ -219,6 +244,16 @@ pub trait CangguCrypto {
 /// Host functions that a Canggu node must register next to `sp_io::SubstrateHostFunctions`.
 #[cfg(feature = "std")]
 pub type HostFunctions = canggu_crypto::HostFunctions;
+
+/// SP1 programs the chain knows (built from `sp1/programs`, see `sp1/README.md`).
+pub mod sp1 {
+	/// vkey hash of `mldsa-batch`: proves a batch of ML-DSA-65 signatures valid.
+	pub const MLDSA_BATCH_VKEY_HASH: [u8; 32] =
+		*include_bytes!("../../sp1/crates/canggu-sp1-verify/vkeys/mldsa-batch.vkey_hash.bin");
+	/// vkey hash of `payroll`: private amounts sum to a public total and match a commitment.
+	pub const PAYROLL_VKEY_HASH: [u8; 32] =
+		*include_bytes!("../../sp1/crates/canggu-sp1-verify/vkeys/payroll.vkey_hash.bin");
+}
 
 /// Well-known development accounts (ML-DSA-65 keys derived from `//Name`, see [`keyring`]).
 ///

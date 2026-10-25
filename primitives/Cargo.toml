@@ -23,6 +23,7 @@ ark-bls12-381 = { workspace = true, optional = true, features = ["curve"] }
 ark-ff = { workspace = true, optional = true }
 ark-groth16 = { workspace = true, optional = true }
 ark-serialize = { workspace = true, optional = true }
+canggu-sp1-verify = { workspace = true, optional = true, features = ["std"] }
 log = { workspace = true, optional = true }
 ml-dsa = { workspace = true, optional = true, features = ["alloc"] }
 rayon = { workspace = true, optional = true }
@@ -37,6 +38,7 @@ std = [
 	"ark-ff/std",
 	"ark-groth16/std",
 	"ark-serialize/std",
+	"canggu-sp1-verify",
 	"codec/std",
 	"log/std",
 	"ml-dsa",

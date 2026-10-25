@@ -22,6 +22,9 @@ members = [
 	"runtime",
 ]
 resolver = "2"
+# SP1 guests, the prover and its tooling are separate workspaces (they need the SP1 toolchain and
+# SDK); only the verifier crate is used from here.
+exclude = ["sp1"]
 
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }
@@ -38,6 +41,7 @@ canggu-primitives = { path = "primitives", default-features = false }
 canggu-zk = { path = "zk" }
 canggu-runtime = { path = "runtime", default-features = false }
 canggu-gpu = { path = "gpu" }
+canggu-sp1-verify = { path = "sp1/crates/canggu-sp1-verify", default-features = false }
 canggu-dag-ordering = { path = "pallets/dag-ordering", default-features = false }
 pallet-parallel-payroll = { path = "pallets/parallel-payroll", default-features = false }
 pallet-pq-intents = { path = "pallets/pq-intents", default-features = false }
