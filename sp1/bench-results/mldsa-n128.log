@@ -1,0 +1,19 @@
+{"program":"mldsa-batch","n":128,"cycles":89615879,"gas":121381371,"keccak_permutes":22590,"client_init_s":9.36,"setup_s":0.75,"execute_ms":1318.5,"prove_s":1219.10,"proof_bytes":1272546,"verify_first_ms":26.0,"verify_warm_min_ms":25.5,"verify_warm_median_ms":25.8,"input_bytes_equiv":673408,"threads":12,"env":"ELEMENT_THRESHOLD=201326592 HEIGHT_THRESHOLD=2097152 SP1_WORKER_CORE_BUFFER_SIZE=1 SP1_WORKER_NUM_CORE_WORKERS=1 SP1_WORKER_NUM_RECURSION_EXECUTOR_WORKERS=2 SP1_WORKER_NUM_RECURSION_PROVER_WORKERS=2 SP1_WORKER_NUM_SPLICING_WORKERS=1 SP1_WORKER_RECURSION_EXECUTOR_BUFFER_SIZE=2 SP1_WORKER_RECURSION_PROVER_BUFFER_SIZE=2 SP1_WORKER_SPLICING_BUFFER_SIZE=1"}
+     1232.19 real      8751.03 user      1090.00 sys
+         15554740224  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+           111155965  page reclaims
+                   8  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+               11537  voluntary context switches
+            68399129  involuntary context switches
+     133300637013591  instructions retired
+      35321863655139  cycles elapsed
+         24295246880  peak memory footprint

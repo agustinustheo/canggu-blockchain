@@ -1,0 +1,16 @@
+[package]
+name = "mldsa-batch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["precompile"]
+# Route Keccak-f[1600] through SP1's precompile. Build with `--no-default-features` only to
+# measure the software permutation (`elf/mldsa-batch-soft-keccak.elf`).
+precompile = ["canggu-mldsa/precompile"]
+
+[dependencies]
+canggu-mldsa = { workspace = true }
+sp1-zkvm = { workspace = true }

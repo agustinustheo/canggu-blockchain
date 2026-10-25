@@ -1,0 +1,19 @@
+{"program":"mldsa-batch","n":4,"cycles":4890301,"gas":5408566,"keccak_permutes":707,"client_init_s":9.53,"setup_s":0.75,"execute_ms":73.7,"prove_s":77.44,"proof_bytes":1272546,"verify_first_ms":26.7,"verify_warm_min_ms":26.2,"verify_warm_median_ms":26.4,"input_bytes_equiv":21044,"threads":12}
+       88.68 real       619.93 user        64.16 sys
+         11943837696  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             8684998  page reclaims
+                  98  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+               22607  voluntary context switches
+             4274746  involuntary context switches
+       9493674403109  instructions retired
+       2444484119450  cycles elapsed
+         29920353416  peak memory footprint

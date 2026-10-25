@@ -1,0 +1,18 @@
+# Host-side workspace. The SP1 guest programs (`programs/`, RISC-V, built with `cargo prove`) and
+# the verifier-only crate (`crates/canggu-sp1-verify`, which must not pull in the SDK) are separate
+# workspaces with their own lock files.
+[workspace]
+members = ["crates/canggu-mldsa", "crates/canggu-sp1-prover"]
+exclude = ["programs", "crates/canggu-sp1-verify"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+authors = ["Canggu Contributors"]
+publish = false
+
+[profile.release]
+# Proving is CPU bound; keep symbols out of the way but optimise fully.
+opt-level = 3

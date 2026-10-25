@@ -1,0 +1,19 @@
+{"program":"payroll","n":65536,"cycles":4577895,"gas":10297766,"keccak_permutes":3856,"client_init_s":9.71,"setup_s":0.74,"execute_ms":78.5,"prove_s":141.34,"proof_bytes":1272546,"verify_first_ms":26.4,"verify_warm_min_ms":25.5,"verify_warm_median_ms":25.6,"input_bytes_equiv":524288,"threads":12,"env":"ELEMENT_THRESHOLD=201326592 HEIGHT_THRESHOLD=2097152 SP1_WORKER_CORE_BUFFER_SIZE=1 SP1_WORKER_NUM_CORE_WORKERS=1 SP1_WORKER_NUM_RECURSION_EXECUTOR_WORKERS=2 SP1_WORKER_NUM_RECURSION_PROVER_WORKERS=2 SP1_WORKER_NUM_SPLICING_WORKERS=1 SP1_WORKER_RECURSION_EXECUTOR_BUFFER_SIZE=2 SP1_WORKER_RECURSION_PROVER_BUFFER_SIZE=2 SP1_WORKER_SPLICING_BUFFER_SIZE=1"}
+      152.41 real      1056.98 user       114.39 sys
+         14658994176  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+            13050963  page reclaims
+                   8  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   1  voluntary context switches
+             7038929  involuntary context switches
+      16315627325739  instructions retired
+       4202282981415  cycles elapsed
+         21001454056  peak memory footprint

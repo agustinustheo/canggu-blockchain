@@ -1,0 +1,23 @@
+[package]
+name = "canggu-mldsa"
+description = "no_std ML-DSA-65 verifier, Keccak/SHAKE and the canggu-sp1 statements"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[features]
+default = ["precompile"]
+# Inside the SP1 zkVM (`target_os = "zkvm"`), route Keccak-f[1600] through SP1's
+# `syscall_keccak_permute` precompile. Has no effect on other targets. Disable it only to measure
+# the cost of the software permutation.
+precompile = []
+
+[dependencies]
+blake2 = { version = "0.10.6", default-features = false }
+# Unrolled software Keccak-f[1600] (used on the host and when the precompile is disabled).
+keccak = { version = "0.1.5", default-features = false }
+
+[dev-dependencies]
+sha3 = { version = "0.10.8", default-features = false }

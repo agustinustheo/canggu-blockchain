@@ -1,0 +1,5 @@
+mldsa n=4 status=0 wall=88.68s peak_rss_bytes=11943837696
+disk guard: free space below 6.5 GB, killing bench
+mldsa n=16 status=143 wall=s peak_rss_bytes=
+mldsa n=16 status=0 wall=237.40s peak_rss_bytes=17755602944
+mldsa n=16 status=0 wall=269.47s peak_rss_bytes=16115810304

@@ -1,0 +1,21 @@
+# SP1 guest programs (RISC-V). Built with `cargo prove build` (see `../scripts/build-elfs.sh`);
+# the resulting ELFs are committed under `../elf/`, so host crates never need this toolchain.
+[workspace]
+members = ["mldsa-batch", "payroll"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+publish = false
+
+[workspace.dependencies]
+canggu-mldsa = { path = "../crates/canggu-mldsa", default-features = false }
+sp1-zkvm = { version = "=6.10.0" }
+
+[profile.release]
+# Fewer, larger functions mean fewer cycles; panics abort the guest either way.
+codegen-units = 1
+lto = "fat"
+opt-level = 3

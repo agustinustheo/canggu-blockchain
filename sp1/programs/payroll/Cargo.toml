@@ -1,0 +1,10 @@
+[package]
+name = "payroll"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+canggu-mldsa = { workspace = true, features = ["precompile"] }
+sp1-zkvm = { workspace = true }

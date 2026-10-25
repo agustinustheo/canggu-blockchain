@@ -1,0 +1,10 @@
+mldsa n=4 status=0 wall=83.28s peak_rss_bytes=14883536896
+payroll n=16 status=0 wall=60.76s peak_rss_bytes=15279095808
+mldsa n=16 status=0 wall=215.33s peak_rss_bytes=16227663872
+mldsa n=64 status=0 wall=628.71s peak_rss_bytes=16927948800
+mldsa n=128 status=0 wall=1232.19s peak_rss_bytes=15554740224
+payroll n=4096 status=0 wall=65.71s peak_rss_bytes=14466973696
+payroll n=65536 status=0 wall=152.41s peak_rss_bytes=14658994176
+payroll n=262144 status=0 wall=463.50s peak_rss_bytes=15029682176
+mldsa n=4 status=0 wall=85.21s peak_rss_bytes=13672366080
+payroll n=16 status=0 wall=61.75s peak_rss_bytes=14041595904
