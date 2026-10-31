@@ -1,4 +1,12 @@
+## :warning: :construction: For learning only. Use at your own peril. :construction: :warning:
+
+This is a research prototype that explores how far the Polkadot SDK can go. It is not audited and
+it is not production software. Do not use it, or its development keys, to hold or move real value.
+
 # Canggu on the Polkadot SDK
+
+> 📖 **Read the book:** [agustinustheodorus.com/canggu-blockchain](https://agustinustheodorus.com/canggu-blockchain/),
+> a beginner-friendly guide to everything in this repository (source in [`docs/`](docs/)).
 
 **How far can the Polkadot SDK be pushed?** This repository rebuilds *Canggu*, a quantum-secure,
 MEV-resistant, GPU-parallel blockchain designed by the Bitwyre team, on top of the
@@ -17,6 +25,12 @@ second validator verifies the same blocks on its CPU, and the two stay in consen
 > and its first commits are preserved in this repository's history. They open-sourced the project;
 > this fork keeps their GPL-3.0 license. Everything built on top is an independent rebuild of their
 > idea. Credit for the idea is theirs, and mistakes in the rebuild are ours.
+>
+> **Who wrote the rebuild.** The code, measurements, whitepaper v2.0 and documentation were written
+> by **Claude**, an AI model made by Anthropic, in a conversation directed by
+> [agustinustheo](https://github.com/agustinustheo), who chose the goals, reviewed the results and
+> publishes them here. See [Credits and authorship](https://agustinustheodorus.com/canggu-blockchain/credits.html)
+> for every library used.
 >
 > * Original whitepaper (v1.3): [`canggu-blockchain-whitepaper`](https://github.com/agustinustheo/canggu-blockchain-whitepaper)
 > * Polkadot SDK edition of the whitepaper (v2.0), describing this code: [`v2/main.pdf`](https://github.com/agustinustheo/canggu-blockchain-whitepaper/blob/main/v2/main.pdf)
@@ -339,7 +353,8 @@ CANGGU_SLOT_MS=500 cargo build --release -p canggu-node &&
 ## Lessons from Rand Protocol: why it is built differently, and what we took
 
 [Rand Protocol](https://github.com/randprotocol/fullnode) ([whitepaper](http://randprotocol.org/papers/randprotocol.pdf))
-is a later chain by Dendi Suhubdy, one of Canggu's original authors. It makes many of the same
+is a later chain by Dendi Suhubdy, one of Canggu's original authors; its whitepaper is by Dendi
+Suhubdy and Anish Mohammed. It makes many of the same
 choices (Dilithium, STARKs, GPU provers) on a different foundation. The differences come from one
 decision: Rand is a **fully shielded chain**, with no accounts, no balances and no visible senders.
 Canggu, like every Polkadot SDK chain, is an **account chain**.
@@ -502,8 +517,9 @@ See [TODO.md](TODO.md) for the roadmap.
 
 * **Canggu** design and whitepaper v1.3: Dendi Suhubdy, Tejveer Singh, Mitul Dhawan, Maldini Sonkeng
   (Bitwyre). Original repository: Dendi Suhubdy and Mitul Dhawan.
-* **Rand Protocol** by Dendi Suhubdy: [full node](https://github.com/randprotocol/fullnode) and
-  [whitepaper](http://randprotocol.org/papers/randprotocol.pdf). Sealed ordering adapts its
+* **Rand Protocol**: [full node](https://github.com/randprotocol/fullnode) by Dendi Suhubdy, and
+  [whitepaper](http://randprotocol.org/papers/randprotocol.pdf) by Dendi Suhubdy (Bitwyre) and Anish
+  Mohammed (Zeroknowledge Consulting Ltd). Sealed ordering adapts its
   Theorem 15.4 and Proposition 14.2. The aggregation analysis follows its `docs/aggregation.md` and
   `docs/block-space.md`.
 * **[Polkadot SDK](https://github.com/paritytech/polkadot-sdk)** and
@@ -511,7 +527,9 @@ See [TODO.md](TODO.md) for the roadmap.
 * **[SP1](https://github.com/succinctlabs/sp1)**: Succinct Labs, for post-quantum proofs and
   signature compression.
 * **[`ml-dsa`](https://crates.io/crates/ml-dsa)**: RustCrypto. **[arkworks](https://arkworks.rs)**
-  for Groth16.
+  for Groth16. **[`objc2-metal`](https://github.com/madsmtm/objc2)** for the Metal bindings.
+* **The rebuild:** written by Claude (Anthropic), directed and published by agustinustheo. The full
+  list is in the book's [Credits and authorship](https://agustinustheodorus.com/canggu-blockchain/credits.html).
 
 ## License
 
