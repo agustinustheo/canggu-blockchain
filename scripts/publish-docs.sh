@@ -47,7 +47,7 @@ else
 	git worktree add -q --detach "$WORK"
 	git -C "$WORK" checkout -q --orphan gh-pages
 fi
-git -C "$WORK" rm -rq --ignore-unmatch . >/dev/null
+git -C "$WORK" rm -rqf --ignore-unmatch . >/dev/null
 cp -R docs/book/. "$WORK/"
 git -C "$WORK" add -A
 if git -C "$WORK" diff --cached --quiet; then
