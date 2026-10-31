@@ -1,0 +1,1741 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Canggu on the Polkadot SDK</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="How far can the Polkadot SDK go? A research rebuild of the Canggu blockchain design: post-quantum accounts, zero-knowledge proofs (including a zkVM), GPU verification, MEV mitigation and fast finality, explained for newcomers.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Canggu on the Polkadot SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/agustinustheo/canggu-blockchain" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="canggu-on-the-polkadot-sdk"><a class="header" href="#canggu-on-the-polkadot-sdk">Canggu on the Polkadot SDK</a></h1>
+<blockquote>
+<h2 id="--for-learning-only-use-at-your-own-peril--"><a class="header" href="#--for-learning-only-use-at-your-own-peril--">⚠️ 🚧 For learning only. Use at your own peril. 🚧 ⚠️</a></h2>
+<p>This is a research prototype that explores how far the Polkadot SDK can go. It is not audited
+and it is not production software. Do not use it, or its development keys, to hold or move real
+value.</p>
+</blockquote>
+<p><strong>How far can the Polkadot SDK go?</strong></p>
+<p>This book documents an experiment. We took <em>Canggu</em>, an ambitious blockchain design, and tried to
+build it on the <a href="https://github.com/paritytech/polkadot-sdk">Polkadot SDK</a>, the Rust framework that
+includes Substrate and FRAME. Canggu asks for things that sound like years of work:</p>
+<ul>
+<li>accounts that stay safe when large quantum computers arrive;</li>
+<li>zero-knowledge proofs, including proofs from a <strong>zkVM</strong> (a virtual machine that proves it ran a
+program correctly);</li>
+<li>protection against front-running (<em>MEV</em>);</li>
+<li>smart-contract-style work on <strong>GPUs</strong>;</li>
+<li>finality in under a second.</li>
+</ul>
+<p>The result is a working chain. It produces blocks, verifies post-quantum signatures, checks
+zkVM proofs on-chain, verifies batches of signatures on an Apple GPU, and keeps two validators
+in consensus while one uses a GPU and the other a CPU. Every performance number of this project in this book
+was measured on a real machine (an Apple M4 Pro laptop); numbers quoted from other projects are
+marked as such. Every limitation we found is written down.</p>
+<blockquote>
+<p><strong>This is not our idea.</strong> Canggu was designed by <strong>Dendi Suhubdy, Tejveer Singh, Mitul Dhawan
+and Maldini Sonkeng</strong> (Bitwyre), who wrote the original whitepaper and open-sourced it. This
+rebuild was written by <strong>Claude</strong>, an AI model made by Anthropic, in a conversation directed by
+<a href="https://github.com/agustinustheo">agustinustheo</a>, who published it. See
+<a href="credits.html">Credits and authorship</a> for every person and library this work stands on.</p>
+</blockquote>
+<h2 id="who-this-book-is-for"><a class="header" href="#who-this-book-is-for">Who this book is for</a></h2>
+<p>You do not need to know blockchains, cryptography or Rust to read most of it. Each chapter starts
+in plain words and only then goes into detail. If a word is new, look it up in the
+<a href="appendix/glossary.html">Glossary</a>.</p>
+<ul>
+<li><strong>New to all of this?</strong> Read <a href="background/canggu-v1.html">What Canggu set out to do</a>, then
+<a href="background/polkadot-sdk-primer.html">The Polkadot SDK in ten minutes</a> and
+<a href="background/architecture.html">The big picture</a>.</li>
+<li><strong>Want to run it?</strong> Go to <a href="getting-started/build-and-run.html">Build and start a chain</a>.</li>
+<li><strong>Want the conclusions?</strong> Read <a href="results/why-polkadot-sdk.html">Why the Polkadot SDK made this possible</a>
+and <a href="results/limitations.html">Limitations and open problems</a>.</li>
+</ul>
+<h2 id="what-is-in-the-box"><a class="header" href="#what-is-in-the-box">What is in the box</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Canggu idea</th><th>How it was built here</th><th>Status</th></tr></thead><tbody>
+<tr><td>Quantum-safe accounts (Dilithium)</td><td>A new account signature type (ML-DSA-65) checked by native node code</td><td>Works</td></tr>
+<tr><td>Transactions that cannot be reordered past their dependencies</td><td>The transaction pool's existing dependency graph, plus one extension</td><td>Works</td></tr>
+<tr><td>Front-running protection</td><td>No tips, and <em>sealed ordering</em>: commit now, reveal later, run in an order nobody chose</td><td>Works, with known trade-offs</td></tr>
+<tr><td>Zero-knowledge proofs</td><td>Groth16 (small, not quantum-safe) and <strong>SP1 zkVM</strong> proofs (large, quantum-safe)</td><td>Works</td></tr>
+<tr><td>Signature compression</td><td>One SP1 proof replaces every signature in a batch</td><td>Works, but only pays off with large batches and GPU provers</td></tr>
+<tr><td>GPU acceleration</td><td>Batch signature verification on Apple Metal, behind a node function</td><td>Works</td></tr>
+<tr><td>Fast leader-based consensus</td><td>Aura block production and GRANDPA finality</td><td>Works</td></tr>
+<tr><td>Sub-second finality</td><td>GRANDPA with two settings changed: 242 ms with 2 s blocks, 121 ms with 500 ms blocks, on one machine</td><td>Works on localhost; not tested over a real network</td></tr>
+<tr><td>50,000+ transactions per second</td><td>Not reached: about 370 per second, limited by signature size</td><td>Not possible as designed</td></tr>
+</tbody></table>
+</div>
+<h2 id="where-things-live"><a class="header" href="#where-things-live">Where things live</a></h2>
+<ul>
+<li>The code: <a href="https://github.com/agustinustheo/canggu-blockchain">github.com/agustinustheo/canggu-blockchain</a></li>
+<li>The original whitepaper (v1.3) and the Polkadot SDK edition (v2.0):
+<a href="https://github.com/agustinustheo/canggu-blockchain-whitepaper">github.com/agustinustheo/canggu-blockchain-whitepaper</a></li>
+<li>This book's source: the <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/docs"><code>docs/</code></a>
+folder of the code repository.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="credits-and-authorship"><a class="header" href="#credits-and-authorship">Credits and authorship</a></h1>
+<p>This project stands on other people's work. This page says exactly whose.</p>
+<h2 id="the-idea-canggu"><a class="header" href="#the-idea-canggu">The idea: Canggu</a></h2>
+<p>Canggu, its name, its design and its original whitepaper (v1.3, March 2025) are the work of:</p>
+<ul>
+<li><strong>Dendi Suhubdy</strong> (Bitwyre)</li>
+<li><strong>Tejveer Singh</strong> (Bitwyre)</li>
+<li><strong>Mitul Dhawan</strong> (Bitwyre)</li>
+<li><strong>Maldini Sonkeng</strong> (Bitwyre)</li>
+</ul>
+<p>They published the design and the start of an implementation as open source under the GPL-3.0
+license. The first commits of the code repository are theirs (by Dendi Suhubdy and Mitul
+Dhawan, <a href="https://github.com/mitul72">@mitul72</a>). The whitepaper repository's history is theirs (by
+Dendi Suhubdy and Maldini Sonkeng). Both histories are kept unchanged in the forks this book links
+to. Credit for the idea belongs to them.</p>
+<p>This rebuild is not endorsed by them. It changes and corrects parts of their design (see
+<a href="results/corrections.html">What the original design got wrong</a>). Any mistakes in the rebuild are
+ours, not theirs.</p>
+<h2 id="the-rebuild-who-did-what"><a class="header" href="#the-rebuild-who-did-what">The rebuild: who did what</a></h2>
+<ul>
+<li><strong>Claude</strong>, an AI model made by Anthropic, wrote the code, the tests, the measurements, the
+whitepaper v2.0 and this book. That includes the parts built by separate Claude sessions working
+on sub-tasks (the Metal GPU kernels and the SP1 programs).</li>
+<li><strong><a href="https://github.com/agustinustheo">agustinustheo</a></strong> started the project, chose the goals,
+pointed to the sources (Canggu, Rand Protocol, SP1, <code>verifiable</code>), reviewed the results and
+published them under his GitHub account. In his own words, it is not his work.</li>
+</ul>
+<p>The goal was research: to learn how far the Polkadot SDK can be pushed toward a design this
+ambitious. It is not a product and has not been audited.</p>
+<h2 id="ideas-we-adapted"><a class="header" href="#ideas-we-adapted">Ideas we adapted</a></h2>
+<ul>
+<li><strong>Rand Protocol</strong>, a later blockchain by <strong>Dendi Suhubdy</strong>
+(<a href="https://github.com/randprotocol/fullnode">full node</a>), described in the whitepaper
+<em>Randprotocol: Confidential Arbitrary Computations</em> by <strong>Dendi Suhubdy</strong> (Bitwyre) and <strong>Anish
+Mohammed</strong> (Zeroknowledge Consulting Ltd)
+(<a href="http://randprotocol.org/papers/randprotocol.pdf">PDF</a>). Sealed ordering adapts its
+corrected front-running theorem (Proposition 14.2 and Theorem 15.4). The signature-compression
+analysis follows its block-aggregation and block-space documents.</li>
+<li><strong>MiMC</strong> hash design by Martin Albrecht, Lorenzo Grassi, Christian Rechberger, Arnab Roy and Tyge
+Tiessen (used in the demo Groth16 circuit).</li>
+<li><strong>Groth16</strong> proof system by Jens Groth.</li>
+<li><strong>CRYSTALS-Dilithium / ML-DSA</strong> by the CRYSTALS team, standardised by NIST as FIPS 204.</li>
+</ul>
+<h2 id="software-we-used"><a class="header" href="#software-we-used">Software we used</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Project</th><th>What it does here</th><th>Authors</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/paritytech/polkadot-sdk">Polkadot SDK</a> (stable2609)</td><td>The whole blockchain framework: node, runtime, FRAME pallets, transaction pool, Aura, GRANDPA, and the solochain template we started from</td><td>Polkadot SDK contributors</td></tr>
+<tr><td><a href="https://crates.io/crates/ml-dsa"><code>ml-dsa</code></a> 0.1.1</td><td>ML-DSA-65 signing and verification (the reference for everything else)</td><td>RustCrypto contributors</td></tr>
+<tr><td><a href="https://arkworks.rs">arkworks</a> 0.6 (<code>ark-groth16</code>, <code>ark-bls12-381</code>, <code>ark-relations</code>, …)</td><td>Groth16 proofs on BLS12-381</td><td>arkworks contributors</td></tr>
+<tr><td><a href="https://github.com/succinctlabs/sp1">SP1</a> 6.10 (<code>sp1-sdk</code>, <code>sp1-zkvm</code>, <code>sp1-verifier</code>)</td><td>The zkVM: proving Rust programs and verifying their proofs</td><td>Succinct Labs and contributors</td></tr>
+<tr><td><a href="https://github.com/madsmtm/objc2"><code>objc2</code></a> / <code>objc2-metal</code> / <code>objc2-foundation</code></td><td>Rust bindings to Apple's Metal GPU API</td><td>Mads Marquart and contributors</td></tr>
+<tr><td><a href="https://developer.apple.com/metal/">Metal</a></td><td>The GPU programming interface the kernels run on</td><td>Apple</td></tr>
+<tr><td><a href="https://github.com/rayon-rs/rayon"><code>rayon</code></a></td><td>Multi-core CPU verification</td><td>rayon contributors</td></tr>
+<tr><td><a href="https://github.com/paritytech/parity-scale-codec"><code>parity-scale-codec</code></a> and <a href="https://github.com/paritytech/scale-info"><code>scale-info</code></a></td><td>Encoding of every on-chain type</td><td>SCALE codec contributors</td></tr>
+<tr><td>RustCrypto <a href="https://crates.io/crates/keccak"><code>keccak</code></a> and <a href="https://crates.io/crates/blake2"><code>blake2</code></a></td><td>Hashing inside the SP1 ML-DSA program</td><td>RustCrypto contributors</td></tr>
+<tr><td><a href="https://github.com/bincode-org/bincode"><code>bincode</code></a></td><td>Decoding SP1 proofs in the verifier</td><td>bincode contributors</td></tr>
+<tr><td><a href="https://github.com/clap-rs/clap"><code>clap</code></a> and <a href="https://github.com/algesten/ureq"><code>ureq</code></a></td><td>The <code>canggu</code> command line and its RPC calls</td><td>clap and ureq contributors</td></tr>
+<tr><td><a href="https://tectonic-typesetting.github.io">tectonic</a></td><td>Building the whitepaper PDF</td><td>tectonic contributors</td></tr>
+<tr><td><a href="https://github.com/rust-lang/mdBook">mdBook</a></td><td>This book</td><td>Rust project contributors</td></tr>
+</tbody></table>
+</div>
+<p>We also use <code>serde</code>, <code>serde_json</code>, <code>hex</code>, <code>anyhow</code>, <code>rand</code>, <code>jsonrpsee</code> and, in tests, <code>sha3</code> and
+<code>blake2b_simd</code>. Hundreds of other open-source crates are pulled in through these. They are listed in the
+repository's <code>Cargo.lock</code> files, and their authors are credited in each crate's own metadata.</p>
+<h2 id="projects-we-evaluated"><a class="header" href="#projects-we-evaluated">Projects we evaluated</a></h2>
+<ul>
+<li><a href="https://github.com/paritytech/verifiable"><code>verifiable</code></a>: ring-VRF membership proofs. Evaluated
+for hiding who submits a sealed commitment. Not used in the code (see
+<a href="results/rand-protocol.html#is-verifiable-useful-here">Lessons from Rand Protocol</a>).</li>
+</ul>
+<h2 id="license"><a class="header" href="#license">License</a></h2>
+<p>The code is GPL-3.0, the license the original authors chose. See
+<a href="https://github.com/agustinustheo/canggu-blockchain/blob/main/LICENSE"><code>LICENSE</code></a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="what-canggu-set-out-to-do"><a class="header" href="#what-canggu-set-out-to-do">What Canggu set out to do</a></h1>
+<p><em>Canggu</em> is a blockchain design published in March 2025 by Dendi Suhubdy, Tejveer Singh, Mitul
+Dhawan and Maldini Sonkeng (Bitwyre) in the whitepaper <em>"Canggu Blockchain: A Quantum-Secure,
+MEV-Resistant Blockchain for Parallel Computing"</em> (v1.3). This page summarises their goals. Later
+chapters show how each one was built, and where the design had to change.</p>
+<h2 id="the-four-problems-it-targets"><a class="header" href="#the-four-problems-it-targets">The four problems it targets</a></h2>
+<ol>
+<li><strong>Quantum computers.</strong> The signatures that protect almost every blockchain account today
+(ECDSA, Ed25519, Sr25519) can be broken by a large enough quantum computer running Shor's
+algorithm. Canggu wants accounts that stay safe.</li>
+<li><strong>Front-running (MEV).</strong> Whoever builds a block chooses the order of its transactions. They can
+put their own trade just before yours and profit from it. Canggu wants ordering that block
+producers cannot exploit.</li>
+<li><strong>Sequential execution.</strong> Most chains run transactions one at a time on one CPU core, even when
+the transactions do not touch the same data. Canggu wants to use parallel hardware, including
+GPUs.</li>
+<li><strong>Slow or fragile consensus.</strong> Canggu wants fast block production with a rotating leader and
+finality in under a second.</li>
+</ol>
+<h2 id="the-five-building-blocks-it-proposes"><a class="header" href="#the-five-building-blocks-it-proposes">The five building blocks it proposes</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Building block (v1.3)</th><th>In plain words</th></tr></thead><tbody>
+<tr><td>CRYSTALS-Dilithium signatures, Kyber key exchange, XMSS hashing</td><td>Use the new NIST post-quantum algorithms everywhere</td></tr>
+<tr><td>A DAG-based mempool</td><td>Transactions point at the transactions they depend on, so they cannot be reordered past them</td></tr>
+<tr><td>Leader-based BFT consensus (like Solana's Tower BFT)</td><td>One leader at a time proposes blocks; a vote finalises them</td></tr>
+<tr><td>ZK-SNARKs for verifiers and provers</td><td>Expensive work is proven once, and everyone else checks a small proof</td></tr>
+<tr><td>Parallel smart contracts on CPU and GPU</td><td>Contracts can include GPU code (CUDA) for data-parallel work</td></tr>
+</tbody></table>
+</div>
+<p>The whitepaper also targets <strong>50,000+ transactions per second</strong>.</p>
+<h2 id="what-this-rebuild-found"><a class="header" href="#what-this-rebuild-found">What this rebuild found</a></h2>
+<p>Most of the design could be built, sometimes much more easily than expected. Several claims did
+not survive contact with real code and measurements: for example, Kyber cannot sign
+transactions, BLS12-381 proofs are not quantum-safe, and 50,000 transactions per second does not
+fit with post-quantum signature sizes. Those findings are not criticism of the authors' ambition;
+they are what an implementation is for. See <a href="background/../results/corrections.html">What the original design got wrong</a>.</p>
+<p>The original whitepaper is kept unchanged at
+<a href="https://github.com/agustinustheo/canggu-blockchain-whitepaper"><code>canggu-blockchain-whitepaper</code></a>
+(<code>main.tex</code> and <code>Canggu_Blockchain_Whitepaper_v1_3.pdf</code>). The Polkadot SDK edition (v2.0), which
+describes this code, is in the same repository under <code>v2/</code>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-polkadot-sdk-in-ten-minutes"><a class="header" href="#the-polkadot-sdk-in-ten-minutes">The Polkadot SDK in ten minutes</a></h1>
+<p>The <a href="https://github.com/paritytech/polkadot-sdk">Polkadot SDK</a> is a toolkit for building
+blockchains in Rust. You do not have to use it to join Polkadot: Canggu uses it to build a
+<strong>standalone chain</strong> (a <em>solochain</em>) with its own validators. This page explains the handful of
+ideas you need for the rest of the book.</p>
+<h2 id="1-a-chain-is-two-programs-the-node-and-the-runtime"><a class="header" href="#1-a-chain-is-two-programs-the-node-and-the-runtime">1. A chain is two programs: the node and the runtime</a></h2>
+<pre><code class="language-text">  ┌──────────────────────── canggu-node (native program) ────────────────────────┐
+  │  networking · transaction pool · block production · finality · database      │
+  │                                                                              │
+  │     ┌──────────── canggu-runtime (WebAssembly, stored on-chain) ─────────┐   │
+  │     │  the rules: accounts, balances, fees, every "pallet"               │   │
+  │     └────────────────────────────────────────────────────────────────────┘   │
+  │        ▲ the runtime can only reach the outside world through               │
+  │        └ "host functions" that the node provides                            │
+  └──────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<ul>
+<li>The <strong>node</strong> is an ordinary program. It talks to other nodes, keeps the database, and decides
+when to produce and finalise blocks.</li>
+<li>The <strong>runtime</strong> holds the chain's rules: what a valid transaction is, how balances change, what
+each feature does. It is compiled to WebAssembly (Wasm) and stored <em>on the chain itself</em>, so
+every validator runs exactly the same rules, and the rules can be upgraded without restarting
+anything.</li>
+</ul>
+<p>Because every validator must compute exactly the same result, the runtime is <em>deterministic</em>:
+no clocks, no randomness, no network, no files, no GPU.</p>
+<h2 id="2-host-functions-how-the-runtime-asks-the-node-for-help"><a class="header" href="#2-host-functions-how-the-runtime-asks-the-node-for-help">2. Host functions: how the runtime asks the node for help</a></h2>
+<p>The runtime cannot do anything the node does not offer it. The node offers a fixed list of
+<strong>host functions</strong>: "store this value", "hash these bytes", "check this signature". The runtime
+calls them like normal functions, and the node runs them as fast native code.</p>
+<p>This is the most important idea in this project. Expensive cryptography (post-quantum
+signatures, zero-knowledge proofs) becomes a host function. The runtime stays simple and
+deterministic, and the node is free to compute the answer however it likes (one CPU core, all
+cores, or a GPU), as long as the answer is always the same.</p>
+<h2 id="3-frame-and-pallets-the-runtime-is-built-from-modules"><a class="header" href="#3-frame-and-pallets-the-runtime-is-built-from-modules">3. FRAME and pallets: the runtime is built from modules</a></h2>
+<p>Inside the runtime, features are <strong>pallets</strong>: modules with their own storage, their own
+transactions ("calls") and their own events. The Polkadot SDK ships many (balances, sudo,
+timestamps…), and Canggu adds its own (<code>pallet-zk-verifier</code>, <code>pallet-pq-intents</code>,
+<code>pallet-sealed-ordering</code>, <code>pallet-parallel-payroll</code>). The framework that ties pallets together is
+called <strong>FRAME</strong>.</p>
+<h2 id="4-transactions-extrinsics-and-transaction-extensions"><a class="header" href="#4-transactions-extrinsics-and-transaction-extensions">4. Transactions (extrinsics) and transaction extensions</a></h2>
+<p>A transaction is called an <strong>extrinsic</strong>. A signed extrinsic carries a call, the sender, a
+signature, and a list of <strong>transaction extensions</strong>: small checks that run before and after the
+call. Examples: "the nonce is correct", "the sender can pay the fee", "this was signed for this
+chain". Canggu adds two:</p>
+<ul>
+<li><code>CheckDagParents</code>: "this transaction may only run after these other transactions";</li>
+<li><code>ChargeTransactionPaymentNoTip</code>: the normal fee check, but tips are refused.</li>
+</ul>
+<h2 id="5-the-transaction-pool-already-orders-by-dependencies"><a class="header" href="#5-the-transaction-pool-already-orders-by-dependencies">5. The transaction pool already orders by dependencies</a></h2>
+<p>Every validated transaction tells the pool which <strong>tags</strong> it <em>provides</em> and which it <em>requires</em>.
+A transaction becomes <em>ready</em> only when all the tags it requires are provided by transactions
+already on-chain or already ready. Normally the tags are just <code>(account, nonce)</code>, so your second
+transaction waits for your first. That is already a dependency graph (a DAG), which is why
+Canggu's "DAG mempool" turned out to be a small extension rather than a new mempool. See
+<a href="background/../features/dag-ordering.html">Transactions that wait for each other</a>.</p>
+<h2 id="6-consensus-aura-and-grandpa"><a class="header" href="#6-consensus-aura-and-grandpa">6. Consensus: Aura and GRANDPA</a></h2>
+<ul>
+<li><strong>Aura</strong> gives block production to validators in turn. Each one gets a fixed <em>slot</em> (2 seconds
+in Canggu) and is the only leader in that slot.</li>
+<li><strong>GRANDPA</strong> finalises blocks. Validators vote, and once more than two-thirds agree, a block and
+all its ancestors are final and can never be reverted.</li>
+</ul>
+<p>Together they give "a rotating leader plus BFT finality", which is what Canggu's v1.3 whitepaper
+asked for. See <a href="background/../features/finality.html">Sub-second finality</a>.</p>
+<h2 id="7-weights-paying-for-execution-time"><a class="header" href="#7-weights-paying-for-execution-time">7. Weights: paying for execution time</a></h2>
+<p>Every call declares a <strong>weight</strong>: an estimate of how long it takes on reference hardware. Blocks
+have a weight limit, and fees follow weight. Real chains measure weights with benchmarks. In this
+research prototype they are hand-set estimates, which is one of the known
+<a href="background/../results/limitations.html">limitations</a>.</p>
+<h2 id="8-standalone-chain-not-a-parachain"><a class="header" href="#8-standalone-chain-not-a-parachain">8. Standalone chain, not a parachain</a></h2>
+<p>Canggu runs as a standalone chain. This matters: on a Polkadot parachain, the relay chain's
+validators re-run every block using only Polkadot's standard host functions. Canggu's custom host
+functions (post-quantum signatures, proof verification, GPU batches) would not exist there.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="post-quantum-cryptography-and-zero-knowledge-briefly"><a class="header" href="#post-quantum-cryptography-and-zero-knowledge-briefly">Post-quantum cryptography and zero knowledge, briefly</a></h1>
+<p>Two kinds of cryptography appear everywhere in this book. You do not need the mathematics; you
+need to know what each one promises and what it costs.</p>
+<h2 id="post-quantum-signatures"><a class="header" href="#post-quantum-signatures">Post-quantum signatures</a></h2>
+<p>A <strong>digital signature</strong> proves that the owner of a private key approved a message. Today's
+blockchain signatures (ECDSA, Ed25519, Sr25519) rest on elliptic-curve problems. A large quantum
+computer running <strong>Shor's algorithm</strong> would solve those problems and forge signatures.</p>
+<p>In 2024 NIST standardised replacements that are believed to resist quantum computers:</p>
+<div class="table-wrapper"><table><thead><tr><th>Standard</th><th>Old name</th><th>What it is</th><th>Used in Canggu</th></tr></thead><tbody>
+<tr><td>FIPS 204, <strong>ML-DSA</strong></td><td>CRYSTALS-Dilithium</td><td>Signature scheme (lattice-based)</td><td>Yes: ML-DSA-65 for every account</td></tr>
+<tr><td>FIPS 203, ML-KEM</td><td>CRYSTALS-Kyber</td><td><em>Key exchange</em>, not a signature</td><td>No (it cannot sign transactions)</td></tr>
+<tr><td>FIPS 205, SLH-DSA</td><td>SPHINCS+</td><td>Signature scheme (hash-based)</td><td>No (a conservative alternative)</td></tr>
+</tbody></table>
+</div>
+<p>The cost is size. An ML-DSA-65 public key is <strong>1,952 bytes</strong> and a signature <strong>3,309 bytes</strong>. A
+classic Sr25519 public key and signature are 32 and 64 bytes. That size difference drives several
+results in this book.</p>
+<p><strong>Hash functions</strong> (like BLAKE2b, which Polkadot SDK chains use) are much less affected: a quantum
+computer only halves their security, so a 256-bit hash keeps about 128 bits of security. That is
+enough.</p>
+<h2 id="zero-knowledge-proofs"><a class="header" href="#zero-knowledge-proofs">Zero-knowledge proofs</a></h2>
+<p>A <strong>zero-knowledge proof</strong> lets someone prove a statement is true without revealing why. For
+example: "these 16 salaries, which I will not show you, add up to 50,000". Two properties matter
+for blockchains:</p>
+<ul>
+<li><strong>Succinct:</strong> checking the proof is fast and small, no matter how much work it proves.</li>
+<li><strong>Zero knowledge:</strong> the proof reveals nothing beyond the statement.</li>
+</ul>
+<p>Making the proof (<em>proving</em>) is slow and expensive. Checking it (<em>verifying</em>) is fast. That
+asymmetry is the whole point: one machine proves, every validator verifies.</p>
+<h3 id="two-families-of-proof-systems"><a class="header" href="#two-families-of-proof-systems">Two families of proof systems</a></h3>
+<div class="table-wrapper"><table><thead><tr><th></th><th>Groth16 (a SNARK)</th><th>STARKs (e.g. SP1's proofs)</th></tr></thead><tbody>
+<tr><td>Proof size</td><td>192 bytes</td><td>about 1.27 MB (SP1)</td></tr>
+<tr><td>Verification</td><td>about 2.3 ms</td><td>about 25 ms (SP1)</td></tr>
+<tr><td>Trusted setup</td><td>Yes, per circuit</td><td>No</td></tr>
+<tr><td>Quantum-safe</td><td><strong>No</strong>: it uses elliptic-curve pairings, which Shor's algorithm breaks</td><td><strong>Plausibly yes</strong>: it uses only hash functions</td></tr>
+</tbody></table>
+</div>
+<h3 id="what-a-zkvm-adds"><a class="header" href="#what-a-zkvm-adds">What a zkVM adds</a></h3>
+<p>Writing a proof "circuit" by hand is hard. A <strong>zkVM</strong> (zero-knowledge virtual machine) proves that
+an ordinary program ran correctly. <a href="https://github.com/succinctlabs/sp1">SP1</a>, the zkVM used
+here, proves Rust programs compiled to RISC-V. In Canggu, SP1 proves two programs:</p>
+<ul>
+<li>a payroll check (the quantum-safe version of the Groth16 demo), and</li>
+<li>a program that verifies a whole batch of ML-DSA signatures, so the chain can accept the proof
+instead of the signatures (<em>signature compression</em>).</li>
+</ul>
+<p>The Canggu chain does not run a zkVM itself. It <strong>verifies zkVM proofs</strong> that are made off-chain.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-big-picture"><a class="header" href="#the-big-picture">The big picture</a></h1>
+<p>This page shows how all the parts fit together. Each box links to a chapter that explains it.</p>
+<pre><code class="language-text"> OFF-CHAIN                          NODE (native code)                      RUNTIME (Wasm, on-chain)
+ ─────────                          ──────────────────                      ────────────────────────
+ canggu CLI (wallet)                Transaction pool                        CangguSignature
+  · ML-DSA-65 keys        ──tx──►    · dependency graph (DAG)       ──►      · ML-DSA-65 or classic
+  · signs transactions               · tips refused                         CheckDagParents
+                                     │                                      ChargeTransactionPaymentNoTip
+ Provers                            Aura (leader per 2 s slot)              pallet-sealed-ordering
+  · Groth16 (arkworks)    ─proof─►  GRANDPA (finality votes)                pallet-pq-intents
+  · SP1 zkVM (canggu-sp1)            │                                      pallet-zk-verifier
+                                    Wasm executor ─────────────────────►    pallet-parallel-payroll
+                                     │                                            │
+                                    Host functions  ◄──── one call ───────────────┘
+                                     · ml_dsa_65_verify
+                                     · ml_dsa_65_batch_verify ──► CPU (1 core / all cores)
+                                     · groth16_bls12_381_verify    or Apple Metal GPU
+                                     · sp1_v6_verify_compressed
+</code></pre>
+<h2 id="the-one-design-idea-behind-everything"><a class="header" href="#the-one-design-idea-behind-everything">The one design idea behind everything</a></h2>
+<p><strong>Keep the rules in the runtime, and move the heavy mathematics into host functions.</strong></p>
+<ul>
+<li>The runtime decides <em>what</em> must be checked: "this signature must be valid", "this proof must
+verify for these public values".</li>
+<li>A host function in the node does <em>the checking</em>, as fast native code.</li>
+</ul>
+<p>This split is why the project works at all:</p>
+<ul>
+<li><strong>Post-quantum signatures</strong> are slow inside Wasm and fast natively.
+→ <a href="background/../features/post-quantum-accounts.html">Post-quantum accounts</a></li>
+<li><strong>Zero-knowledge verifiers</strong> (arkworks, SP1) are large native libraries. SP1's verifier does not
+even compile for the runtime's Wasm target.
+→ <a href="background/../features/zk-proofs.html">Zero-knowledge proofs</a></li>
+<li><strong>GPUs</strong> can only be used by native code, and only if the answer is bit-for-bit the same as on a
+CPU. A host function has exactly that shape: bytes in, a yes/no answer out.
+→ <a href="background/../features/gpu.html">GPU verification</a></li>
+</ul>
+<h2 id="the-life-of-a-transaction"><a class="header" href="#the-life-of-a-transaction">The life of a transaction</a></h2>
+<ol>
+<li>The <strong>wallet</strong> builds a call (for example, "send 10 CGU to Bob"), adds the transaction
+extensions (nonce, fee, optional parent transactions) and signs it with ML-DSA-65.</li>
+<li>The <strong>transaction pool</strong> checks it by calling into the runtime. The signature is verified by
+the <code>ml_dsa_65_verify</code> host function. <code>CheckNonce</code> and <code>CheckDagParents</code> declare which
+transactions it depends on. The fee extension refuses tips.</li>
+<li>The transaction waits until everything it depends on is ready.</li>
+<li>The current <strong>Aura leader</strong> builds a block from ready transactions, in dependency order.</li>
+<li>Every validator <strong>re-executes</strong> the block with the same runtime and the same checks. A block
+that breaks a rule, for example by putting a transaction before one of its declared parents, is
+rejected.</li>
+<li><strong>GRANDPA</strong> finalises the block.</li>
+</ol>
+<h2 id="parts-that-work-differently"><a class="header" href="#parts-that-work-differently">Parts that work differently</a></h2>
+<ul>
+<li><strong>Sealed transactions</strong> are committed as an opaque hash first, revealed later, and executed at
+the start of a later block in an order nobody chose.
+→ <a href="background/../features/sealed-ordering.html">Sealed ordering</a></li>
+<li><strong>Intent batches</strong> carry hundreds of signed transfers in one transaction, so the runtime can
+verify all signatures with one host call (on a GPU, if the node has one), or replace all of them
+with one SP1 proof.
+→ <a href="background/../features/signature-compression.html">Signature compression</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="requirements"><a class="header" href="#requirements">Requirements</a></h1>
+<p>This chapter gives the hardware and software that you need. The procedures in this part of the
+book use ASD-STE100 Simplified Technical English (see <a href="getting-started/../appendix/about-these-docs.html">About these docs</a>).</p>
+<h2 id="hardware"><a class="header" href="#hardware">Hardware</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Minimum</th><th>Tested with</th></tr></thead><tbody>
+<tr><td>Computer</td><td>64-bit macOS or Linux</td><td>Apple M4 Pro, macOS</td></tr>
+<tr><td>Memory</td><td>16 GB (24 GB for SP1 proofs)</td><td>24 GB</td></tr>
+<tr><td>Free disk space</td><td>20 GB (30 GB with SP1)</td><td>—</td></tr>
+<tr><td>GPU</td><td>Not necessary. Apple silicon is necessary for the Metal backend.</td><td>Apple M4 Pro GPU</td></tr>
+</tbody></table>
+</div>
+<blockquote>
+<p><strong>CAUTION:</strong> All tests and measurements in this book were done on one Apple M4 Pro computer.
+Linux builds are not tested. The Metal GPU backend operates on macOS only.</p>
+</blockquote>
+<h2 id="software"><a class="header" href="#software">Software</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Version</th><th>Why you need it</th></tr></thead><tbody>
+<tr><td><a href="https://rustup.rs">rustup</a></td><td>Current</td><td>It installs the Rust version that the repository pins (1.93.0).</td></tr>
+<tr><td>Rust targets <code>wasm32-unknown-unknown</code>, <code>wasm32v1-none</code></td><td>—</td><td>They compile the runtime. <code>rust-toolchain.toml</code> adds them automatically.</td></tr>
+<tr><td><code>protoc</code> (Protocol Buffers compiler)</td><td>Any recent</td><td>The Polkadot SDK networking code needs it.</td></tr>
+<tr><td>A C/C++ compiler (clang)</td><td>Any recent</td><td>RocksDB and other dependencies need it. On macOS, install the Xcode Command Line Tools.</td></tr>
+<tr><td><code>git</code></td><td>Any recent</td><td>It gets the source code.</td></tr>
+</tbody></table>
+</div>
+<h3 id="optional-software"><a class="header" href="#optional-software">Optional software</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Version</th><th>Why you need it</th></tr></thead><tbody>
+<tr><td><a href="https://docs.succinct.xyz"><code>sp1up</code></a> (SP1 toolchain)</td><td>v6.10.0</td><td>Only if you make SP1 proofs or rebuild the SP1 programs.</td></tr>
+<tr><td><a href="https://github.com/rust-lang/mdBook"><code>mdbook</code></a></td><td>0.4</td><td>Only if you build this book.</td></tr>
+<tr><td><a href="https://tectonic-typesetting.github.io"><code>tectonic</code></a></td><td>Any recent</td><td>Only if you build the whitepaper PDF.</td></tr>
+</tbody></table>
+</div>
+<h2 id="install-the-software-macos"><a class="header" href="#install-the-software-macos">Install the software (macOS)</a></h2>
+<ol>
+<li>Install the Xcode Command Line Tools:
+<pre><code class="language-bash">xcode-select --install
+</code></pre>
+</li>
+<li>Install <code>protoc</code> with Homebrew:
+<pre><code class="language-bash">brew install protobuf
+</code></pre>
+</li>
+<li>Install rustup. Accept the default settings:
+<pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+</code></pre>
+</li>
+<li>Open a new terminal. Make sure that <code>cargo</code> is available:
+<pre><code class="language-bash">cargo --version
+</code></pre>
+</li>
+</ol>
+<p>You do not install Rust 1.93.0 manually. The first <code>cargo</code> command in the repository installs it.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="build-and-start-a-chain"><a class="header" href="#build-and-start-a-chain">Build and start a chain</a></h1>
+<blockquote>
+<p><strong>WARNING:</strong> The development chain uses well-known test keys (<code>//Alice</code>, <code>//Bob</code> and others).
+Anyone can sign with these keys. Do not use this chain or these keys for real value.</p>
+</blockquote>
+<h2 id="get-the-code"><a class="header" href="#get-the-code">Get the code</a></h2>
+<ol>
+<li>Clone the repository:
+<pre><code class="language-bash">git clone https://github.com/agustinustheo/canggu-blockchain.git
+cd canggu-blockchain
+</code></pre>
+</li>
+</ol>
+<h2 id="build-the-node-and-the-wallet"><a class="header" href="#build-the-node-and-the-wallet">Build the node and the wallet</a></h2>
+<ol>
+<li>Build in release mode:
+<pre><code class="language-bash">cargo build --release
+</code></pre>
+</li>
+<li>Wait for the build to complete. The first build takes approximately 10 to 20 minutes.</li>
+<li>Make sure that these two files exist:
+<ul>
+<li><code>target/release/canggu-node</code> (the blockchain node)</li>
+<li><code>target/release/canggu</code> (the command-line wallet)</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p><strong>NOTE:</strong> The build also compiles the runtime to WebAssembly. That step uses the
+<code>wasm32v1-none</code> target, which <code>rust-toolchain.toml</code> installs.</p>
+</blockquote>
+<h2 id="start-a-development-chain"><a class="header" href="#start-a-development-chain">Start a development chain</a></h2>
+<ol>
+<li>Open a terminal. Start one node:
+<pre><code class="language-bash">./target/release/canggu-node --dev --tmp
+</code></pre>
+</li>
+<li>Make sure that the log shows new blocks. A new block comes every 2 seconds:
+<pre><code class="language-text">🏆 Imported #1 (0x97ca…83db → 0xd151…ab2a)
+🏆 Imported #2 (0xd151…ab2a → 0x7704…ec82)
+</code></pre>
+</li>
+<li>Keep this terminal open.</li>
+</ol>
+<p>The <code>--tmp</code> option keeps the chain data in a temporary folder. The data is deleted when you stop
+the node.</p>
+<h3 id="use-the-apple-gpu-optional"><a class="header" href="#use-the-apple-gpu-optional">Use the Apple GPU (optional)</a></h3>
+<p>On a Mac with Apple silicon, the node can verify batches of signatures on the GPU.</p>
+<ol>
+<li>Stop the node with <strong>Ctrl+C</strong>.</li>
+<li>Start it again with the Metal backend:
+<pre><code class="language-bash">./target/release/canggu-node --dev --tmp --crypto-backend metal
+</code></pre>
+</li>
+<li>Make sure that the log shows the backend:
+<pre><code class="language-text">⚡ ML-DSA-65 batch verification backend: Metal (Apple M4 Pro), batches of 64+ signatures
+</code></pre>
+</li>
+</ol>
+<p>If the GPU self-test fails, the node does not start. This is intentional: a GPU that gives a
+different answer from the CPU would cause the node to disagree with the other validators.</p>
+<h2 id="run-the-demonstration"><a class="header" href="#run-the-demonstration">Run the demonstration</a></h2>
+<ol>
+<li>Open a second terminal in the repository folder.</li>
+<li>Run the demonstration:
+<pre><code class="language-bash">./target/release/canggu demo
+</code></pre>
+</li>
+<li>Wait approximately one minute. The demonstration sends transactions and waits for blocks.</li>
+<li>Make sure that the last line is:
+<pre><code class="language-text">All Canggu features exercised successfully.
+</code></pre>
+</li>
+</ol>
+<p>The demonstration does these seven steps. Each step is explained in a later chapter.</p>
+<div class="table-wrapper"><table><thead><tr><th>Step</th><th>What it shows</th><th>Chapter</th></tr></thead><tbody>
+<tr><td>1</td><td>A transfer signed with ML-DSA-65 (5,345 bytes)</td><td><a href="getting-started/../features/post-quantum-accounts.html">Post-quantum accounts</a></td></tr>
+<tr><td>2</td><td>A transaction that waits for another account's transaction</td><td><a href="getting-started/../features/dag-ordering.html">Transactions that wait for each other</a></td></tr>
+<tr><td>3</td><td>A transaction with a tip is refused</td><td><a href="getting-started/../features/dag-ordering.html#no-tips-no-priority-auction">Transactions that wait for each other</a></td></tr>
+<tr><td>4</td><td>One payroll transaction pays four people</td><td><a href="getting-started/../features/payroll.html">Parallel payroll</a></td></tr>
+<tr><td>5</td><td>A Groth16 proof of a private payroll, checked on-chain</td><td><a href="getting-started/../features/zk-proofs.html">Zero-knowledge proofs</a></td></tr>
+<tr><td>6</td><td>64 signed intents checked with one host call (on the GPU if enabled)</td><td><a href="getting-started/../features/gpu.html">GPU verification</a></td></tr>
+<tr><td>7</td><td>Commit, reveal in reverse order, execute in canonical order</td><td><a href="getting-started/../features/sealed-ordering.html">Sealed ordering</a></td></tr>
+</tbody></table>
+</div>
+<h2 id="stop-the-chain"><a class="header" href="#stop-the-chain">Stop the chain</a></h2>
+<ol>
+<li>Go to the terminal that runs the node.</li>
+<li>Push <strong>Ctrl+C</strong>.</li>
+</ol>
+<h2 id="run-two-validators"><a class="header" href="#run-two-validators">Run two validators</a></h2>
+<p>Two scripts start two validators (Alice and Bob) on the same computer.</p>
+<div class="table-wrapper"><table><thead><tr><th>Script</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>scripts/mixed-backends.sh</code></td><td>Alice verifies signatures on the GPU, Bob on one CPU core. The script shows that both keep the same blocks. It needs the Metal GPU. On other computers, set <code>ALICE_BACKEND=cpu-parallel</code>.</td></tr>
+<tr><td><code>scripts/finality.sh</code></td><td>It measures the time from a new block to its finalisation.</td></tr>
+</tbody></table>
+</div>
+<ol>
+<li>Make sure that no other node is running.</li>
+<li>Make sure that <code>curl</code> is installed. The scripts use it.</li>
+<li>Run a script from the repository folder:
+<pre><code class="language-bash">scripts/mixed-backends.sh 6 256
+</code></pre>
+</li>
+<li>Make sure that the output contains <code>identical</code>:
+<pre><code class="language-text">blocks 1..11: identical
+finalized: alice #11, bob #11
+</code></pre>
+</li>
+</ol>
+<blockquote>
+<p><strong>CAUTION:</strong> The two validators use the ports 30333, 30334, 9944 and 9945. Stop other
+programs that use these ports before you start a script.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="use-the-canggu-command-line"><a class="header" href="#use-the-canggu-command-line">Use the <code>canggu</code> command line</a></h1>
+<p><code>canggu</code> is a small wallet and test tool. It signs every transaction with ML-DSA-65. It connects
+to a node at <code>http://127.0.0.1:9944</code> (change this with <code>--url</code>).</p>
+<blockquote>
+<p><strong>WARNING:</strong> The keys <code>//Alice</code>, <code>//Bob</code>, <code>//Charlie</code>, <code>//Dave</code> and <code>//Eve</code> are public test
+keys. They exist only to make testing easy. Do not use them for real value.</p>
+</blockquote>
+<h2 id="accounts-and-transfers"><a class="header" href="#accounts-and-transfers">Accounts and transfers</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>canggu account //Alice</code></td><td>Shows the account address and the key sizes.</td></tr>
+<tr><td><code>canggu balance //Eve</code></td><td>Shows the free balance of an account.</td></tr>
+<tr><td><code>canggu transfer --from //Dave --to //Eve --amount 1.5</code></td><td>Sends 1.5 CGU.</td></tr>
+<tr><td><code>canggu transfer --from //Dave --to //Eve --amount 1 --after //Bob:0</code></td><td>Sends 1 CGU, but only after Bob's transaction with nonce 0.</td></tr>
+<tr><td><code>canggu payroll --from //Alice --pay //Bob=10 --pay //Charlie=20</code></td><td>Pays many accounts with one debit.</td></tr>
+</tbody></table>
+</div>
+<h2 id="batches-of-signed-intents"><a class="header" href="#batches-of-signed-intents">Batches of signed intents</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>canggu intents --count 640 --forge 4</code></td><td>Signs 640 transfer intents, changes 4 of them after signing, and sends all in one transaction. The chain accepts 636 and refuses 4.</td></tr>
+<tr><td><code>canggu intents --count 8 --senders 4 --compressed</code></td><td>Proves all 8 signatures with SP1, then sends only the intents and one proof.</td></tr>
+</tbody></table>
+</div>
+<h2 id="sealed-ordering"><a class="header" href="#sealed-ordering">Sealed ordering</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>canggu sealed</code></td><td>Commits four hashes, reveals three in reverse order, and shows that execution follows the canonical order.</td></tr>
+</tbody></table>
+</div>
+<h2 id="zero-knowledge-proofs-1"><a class="header" href="#zero-knowledge-proofs-1">Zero-knowledge proofs</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>canggu zk-setup --recipients 3</code></td><td>Makes Groth16 keys for a 3-salary payroll.</td></tr>
+<tr><td><code>canggu zk-register --from //Bob</code></td><td>Stores the verifying key on-chain.</td></tr>
+<tr><td><code>canggu zk-prove --salt 7 --amounts 100,200,300</code></td><td>Makes a Groth16 proof.</td></tr>
+<tr><td><code>canggu zk-submit --from //Bob</code></td><td>Sends the proof to the chain for verification.</td></tr>
+<tr><td><code>canggu zk-sp1 --from //Alice --salt "october payroll" --amounts 3000,4500,1250</code></td><td>Makes a quantum-safe SP1 proof of the same kind of statement and sends it.</td></tr>
+</tbody></table>
+</div>
+<blockquote>
+<p><strong>WARNING:</strong> <code>canggu zk-setup</code> makes the Groth16 keys on one computer. The random values that it
+uses ("toxic waste") let that computer forge proofs. Use these keys only for tests.</p>
+</blockquote>
+<h3 id="prepare-the-sp1-prover"><a class="header" href="#prepare-the-sp1-prover">Prepare the SP1 prover</a></h3>
+<p>The commands <code>canggu zk-sp1</code> and <code>canggu intents --compressed</code> call a separate prover program,
+<code>canggu-sp1</code>. The wallet does not include it, because the SP1 SDK is very large.</p>
+<ol>
+<li>Build the prover:
+<pre><code class="language-bash">cd sp1
+export CARGO_TARGET_DIR=/tmp/canggu-sp1-target
+cargo build --release -p canggu-sp1-prover --bin canggu-sp1
+cd ..
+</code></pre>
+</li>
+<li>Tell the wallet where the prover is:
+<pre><code class="language-bash">export CANGGU_SP1_PROVER=/tmp/canggu-sp1-target/release/canggu-sp1
+</code></pre>
+</li>
+</ol>
+<blockquote>
+<p><strong>CAUTION:</strong> One SP1 proof uses approximately 14 to 17 GB of memory and takes one minute or
+more. Close large applications before you make a proof.</p>
+</blockquote>
+<h2 id="measurements"><a class="header" href="#measurements">Measurements</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>canggu finality --seconds 40</code></td><td>Measures the time from a new block to its finalisation.</td></tr>
+<tr><td><code>canggu bench</code></td><td>Measures ML-DSA-65 and Groth16 speed on this computer. It does not need a node.</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="run-the-tests"><a class="header" href="#run-the-tests">Run the tests</a></h1>
+<h2 id="run-the-main-test-suite"><a class="header" href="#run-the-main-test-suite">Run the main test suite</a></h2>
+<ol>
+<li>Go to the repository folder.</li>
+<li>Run all tests:
+<pre><code class="language-bash">cargo test --release --workspace
+</code></pre>
+</li>
+<li>Make sure that all tests pass. The main workspace has 67 tests. One of them is marked
+<code>ignored</code>: it only writes a test fixture. The result line shows <code>66 passed; 1 ignored</code>.</li>
+</ol>
+<p>The tests include:</p>
+<ul>
+<li><strong>Runtime tests</strong> that send real ML-DSA-signed transactions through the runtime. They make sure
+that valid transfers execute, and that changed signatures, substituted keys, a transaction
+before its parent, and tips are refused.</li>
+<li><strong>Pallet tests</strong> for each Canggu pallet. Some use real SP1 proofs that are stored in the
+repository.</li>
+<li><strong>GPU tests</strong> that compare the Metal kernels with two CPU implementations on 5,454 test cases.</li>
+</ul>
+<blockquote>
+<p><strong>CAUTION:</strong> The GPU tests need an Apple GPU. They are not tested on other computers.</p>
+</blockquote>
+<h2 id="run-the-sp1-tests"><a class="header" href="#run-the-sp1-tests">Run the SP1 tests</a></h2>
+<p>The SP1 programs are in a separate workspace in the <code>sp1/</code> folder.</p>
+<ol>
+<li>Run the tests:
+<pre><code class="language-bash">cd sp1
+export CARGO_TARGET_DIR=/tmp/canggu-sp1-target
+cargo test --release --workspace
+</code></pre>
+The SP1 workspace has 23 tests. Two of them are marked <code>ignored</code>, because they make full
+proofs, which take minutes.</li>
+<li>Run the verifier tests. The verifier crate has its own workspace:
+<pre><code class="language-bash">cd crates/canggu-sp1-verify
+cargo test --release
+</code></pre>
+</li>
+</ol>
+<h2 id="run-the-gpu-benchmark"><a class="header" href="#run-the-gpu-benchmark">Run the GPU benchmark</a></h2>
+<ol>
+<li>Run the benchmark:
+<pre><code class="language-bash">cargo run --release --bin bench
+</code></pre>
+</li>
+<li>Read the table. It compares one CPU core, all CPU cores and the GPU for batches of 1 to 4,096
+signatures.</li>
+</ol>
+<h2 id="check-the-code-style"><a class="header" href="#check-the-code-style">Check the code style</a></h2>
+<ol>
+<li>Run the formatter. It needs a nightly Rust toolchain:
+<pre><code class="language-bash">cargo +nightly fmt --all -- --check
+</code></pre>
+</li>
+<li>Run Clippy:
+<pre><code class="language-bash">SKIP_WASM_BUILD=1 cargo clippy --release --workspace --all-targets
+</code></pre>
+</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="post-quantum-accounts"><a class="header" href="#post-quantum-accounts">Post-quantum accounts</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/primitives"><code>primitives/</code></a></p>
+<h2 id="in-plain-words"><a class="header" href="#in-plain-words">In plain words</a></h2>
+<p>Every Canggu account is controlled by an <strong>ML-DSA-65</strong> key (the NIST standard formerly called
+CRYSTALS-Dilithium). A large quantum computer could forge today's blockchain signatures, but it is
+not known to be able to forge these.</p>
+<p>The price is size: every transaction carries a 1,952-byte public key and a 3,309-byte signature. A
+simple transfer is <strong>5,345 bytes</strong>, against about 150 bytes on a chain with classic signatures.</p>
+<h2 id="how-it-is-built-on-the-polkadot-sdk"><a class="header" href="#how-it-is-built-on-the-polkadot-sdk">How it is built on the Polkadot SDK</a></h2>
+<h3 id="a-new-signature-type"><a class="header" href="#a-new-signature-type">A new signature type</a></h3>
+<p>In a Polkadot SDK runtime, the signature type is a type parameter. The standard one,
+<code>MultiSignature</code>, knows Ed25519, Sr25519 and ECDSA. Canggu defines its own:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum CangguSignature {
+    Ed25519(ed25519::Signature),        // index 0: transition period only
+    Sr25519(sr25519::Signature),        // index 1: transition period only
+    Ecdsa(ecdsa::Signature),            // index 2: transition period only
+    MlDsa65 { public: MlDsa65Public, signature: MlDsa65Signature }, // index 3
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The rest of the chain does not care what is inside, as long as the type can answer one question:
+<em>is this a valid signature of this message by this account?</em></p>
+<h3 id="why-the-key-travels-with-the-signature"><a class="header" href="#why-the-key-travels-with-the-signature">Why the key travels with the signature</a></h3>
+<p>Polkadot SDK accounts are 32 bytes (<code>AccountId32</code>). An ML-DSA public key is 1,952 bytes, so it
+cannot <em>be</em> the account. Instead:</p>
+<pre><code class="language-text">account = BLAKE2b-256(ML-DSA public key)
+</code></pre>
+<p>and every ML-DSA signature carries its public key. Verification does two things, cheapest first:</p>
+<ol>
+<li>Hash the public key and check that it equals the sender's account. This stops anyone from
+attaching a different key.</li>
+<li>Verify the ML-DSA signature.</li>
+</ol>
+<p>Signatures use the FIPS 204 <em>context string</em> <code>canggu/tx/v1</code>, so a signature made for Canggu
+cannot be reused anywhere else. Replay across chains and runtime versions is stopped by the
+standard Polkadot SDK signed payload (it includes the genesis hash and runtime version).</p>
+<h3 id="verification-runs-in-the-node-not-in-wasm"><a class="header" href="#verification-runs-in-the-node-not-in-wasm">Verification runs in the node, not in Wasm</a></h3>
+<p>The runtime does not contain the lattice mathematics. It calls a host function:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[runtime_interface]
+pub trait CangguCrypto {
+    fn ml_dsa_65_verify(public: &amp;[u8], msg: &amp;[u8], signature: &amp;[u8]) -&gt; bool;
+    // ...
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The node implements it with the RustCrypto <a href="https://crates.io/crates/ml-dsa"><code>ml-dsa</code></a> crate.
+This is exactly how Polkadot SDK chains already verify Sr25519 signatures. One verification takes
+<strong>61 µs</strong> on one core of an Apple M4 Pro.</p>
+<h3 id="a-transition-period"><a class="header" href="#a-transition-period">A transition period</a></h3>
+<p>The classic signature types stay available, with the same encoding positions as
+<code>MultiSignature</code>. That keeps existing tools working while people move to ML-DSA keys. A runtime
+upgrade can remove them later.</p>
+<h2 id="what-we-measured"><a class="header" href="#what-we-measured">What we measured</a></h2>
+<div class="table-wrapper"><table><thead><tr><th></th><th></th></tr></thead><tbody>
+<tr><td>Public key / signature</td><td>1,952 B / 3,309 B</td></tr>
+<tr><td>Signed transfer</td><td>5,345 B</td></tr>
+<tr><td>Sign (one core)</td><td>about 0.75 ms</td></tr>
+<tr><td>Verify (one core, native host function)</td><td>61 µs</td></tr>
+<tr><td>Transfers per block (5 MiB blocks, 75 % for normal transactions)</td><td>about 735</td></tr>
+<tr><td>Transfers per second (2 s blocks)</td><td>about 370</td></tr>
+</tbody></table>
+</div>
+<h2 id="limits"><a class="header" href="#limits">Limits</a></h2>
+<ul>
+<li><strong>Size is the bottleneck.</strong> At about 370 transfers per second the chain runs out of block space,
+not CPU time. See <a href="features/signature-compression.html">Signature compression</a>.</li>
+<li><strong>Only accounts are post-quantum.</strong> Block producers (Aura, Sr25519) and finality voters (GRANDPA,
+Ed25519) still sign with classic keys, and so does the peer-to-peer handshake. A quantum attacker
+could forge blocks or votes even though user funds are safe. Changing this needs keystore and
+consensus changes in the node.</li>
+<li><strong>Development keys only.</strong> <code>//Alice</code> and the other dev keys are derived with a simple hash, not
+a real key-derivation scheme.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="transactions-that-wait-for-each-other"><a class="header" href="#transactions-that-wait-for-each-other">Transactions that wait for each other</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/pallets/dag-ordering"><code>pallets/dag-ordering/</code></a></p>
+<h2 id="in-plain-words-1"><a class="header" href="#in-plain-words-1">In plain words</a></h2>
+<p>Canggu's whitepaper wants a <strong>DAG mempool</strong>: a transaction can say "I depend on that other
+transaction", and nobody can put it before that other transaction. Here, any transaction can name
+up to eight <em>parent</em> transactions, including other people's. The chain guarantees that a
+transaction never runs before its parents.</p>
+<p>The demonstration shows it. Charlie's transaction names Bob's transaction as its parent, and
+Charlie's is sent first:</p>
+<pre><code class="language-text">  submitting Charlie's tx FIRST; it declares Bob's tx (nonce 0) as parent
+  2 blocks later the child is still not in any block: it waits for its parent
+  now submitting Bob's parent tx
+  parent: block #6 index 1 | child: block #6 index 2
+  ok: the child executed strictly after its parent
+</code></pre>
+<h2 id="how-it-is-built-on-the-polkadot-sdk-1"><a class="header" href="#how-it-is-built-on-the-polkadot-sdk-1">How it is built on the Polkadot SDK</a></h2>
+<h3 id="the-pool-is-already-a-dag"><a class="header" href="#the-pool-is-already-a-dag">The pool is already a DAG</a></h3>
+<p>The Polkadot SDK transaction pool does not use a simple queue. Each transaction declares tags it
+<strong>provides</strong> and tags it <strong>requires</strong>, and it becomes <em>ready</em> only when everything it requires is
+provided. Normally the tags are <code>(account, nonce)</code>: your transaction with nonce 5 provides
+<code>(you, 5)</code> and requires <code>(you, 4)</code>. So every chain built with the Polkadot SDK already has a
+dependency graph. It just only links an account to itself.</p>
+<h3 id="one-extension-adds-cross-account-edges"><a class="header" href="#one-extension-adds-cross-account-edges">One extension adds cross-account edges</a></h3>
+<p><code>CheckDagParents</code> is a <em>transaction extension</em>. A transaction lists parents as <code>(account, nonce)</code>
+pairs. The extension does two things:</p>
+<ol>
+<li><strong>In the pool:</strong> for each parent that has not executed yet, add a <code>requires</code> tag. The tag has
+exactly the encoding that the standard <code>CheckNonce</code> extension uses for <code>provides</code>. So the pool,
+unchanged, waits for the parent.</li>
+<li><strong>When the block executes:</strong> check again that every parent has executed (its account's nonce
+has moved past the parent's nonce). If not, the transaction is invalid. A block producer that
+puts a child before its parent produces an <strong>invalid block</strong>, which every honest validator
+rejects.</li>
+</ol>
+<p>The check runs <em>before</em> <code>CheckNonce</code>. That way a rejected transaction changes nothing, not even the
+sender's nonce. (An early version had them the other way round; a test caught it.)</p>
+<h2 id="no-tips-no-priority-auction"><a class="header" href="#no-tips-no-priority-auction">No tips, no priority auction</a></h2>
+<p>In a standard Polkadot SDK chain, a higher <strong>tip</strong> gives a transaction a higher priority. That makes
+tips an open auction for position, which is exactly what front-runners pay for.</p>
+<p><code>ChargeTransactionPaymentNoTip</code> is the standard fee extension with one change: any tip is refused.
+It keeps the same name and encoding, so wallets keep working as long as they send a tip of zero.</p>
+<pre><code class="language-text">  rejected by the pool as expected: Invalid Transaction: "Custom error: 0"
+</code></pre>
+<h2 id="limits-1"><a class="header" href="#limits-1">Limits</a></h2>
+<ul>
+<li><strong>It only enforces declared dependencies.</strong> A transaction that names no parent can still be
+front-run by any transaction that does not depend on it. The whitepaper claimed that a DAG makes
+front-running "computationally infeasible"; that is not true (see
+<a href="features/../results/corrections.html">What the original design got wrong</a>). The fix for undeclared
+front-running is <a href="features/sealed-ordering.html">sealed ordering</a>.</li>
+<li><strong>Eight parents at most</strong>, to keep the check cheap.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="sealed-ordering-against-front-running"><a class="header" href="#sealed-ordering-against-front-running">Sealed ordering against front-running</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/pallets/sealed-ordering"><code>pallets/sealed-ordering/</code></a></p>
+<h2 id="in-plain-words-2"><a class="header" href="#in-plain-words-2">In plain words</a></h2>
+<p>To front-run you, someone must (1) see your transaction before it runs and (2) get their own
+transaction in ahead of it. Sealed ordering removes the second part:</p>
+<ol>
+<li><strong>Commit:</strong> you (or a relayer for you) publish only a 32-byte fingerprint of your transaction,
+plus a deposit. Nobody can tell what it does. If a relayer submits it, nobody can tell who it is
+from either.</li>
+<li><strong>Reveal:</strong> in the next two blocks, you publish the transaction itself.</li>
+<li><strong>Execute:</strong> at the start of a later block, all revealed transactions from the same commit block
+run in an order that <strong>nobody chose</strong> and that nobody could predict when committing.</li>
+</ol>
+<p>Someone who sees your reveal and wants to get ahead of you can only commit in a <em>later</em> block, and
+later blocks always execute after yours.</p>
+<pre><code class="language-text">$ canggu sealed
+  relayer committed 4 opaque 32-byte hashes in block(s) {3}: nobody can tell who pays whom
+  Dave revealed in block #4 (index 1)
+  Charlie revealed in block #4 (index 2)
+  Bob revealed in block #4 (index 3)
+  block #6: position 0: Bob (ok)
+  block #6: position 1: Dave (ok)
+  block #6: position 2: Charlie (ok)
+  block #6: Eve never revealed, deposit burned
+  ok: execution order = blake2(commitment ‖ commit-block hash), not reveal order
+</code></pre>
+<h2 id="where-the-idea-comes-from"><a class="header" href="#where-the-idea-comes-from">Where the idea comes from</a></h2>
+<p>This is adapted from the <strong>Rand Protocol whitepaper</strong> by Dendi Suhubdy (one of Canggu's original
+authors) and Anish Mohammed. Its Proposition 14.2 shows that hiding transaction contents is not enough, because the
+block producer can still order by metadata. Its Theorem 15.4 shows that front-running is removed
+only if three conditions hold:</p>
+<ol>
+<li>the order is fixed while the contents are still hidden;</li>
+<li>there is exactly one valid order, and it binds the block producer;</li>
+<li>what is visible before ordering does not tell transactions apart.</li>
+</ol>
+<p>Rand meets condition 1 with <em>threshold encryption</em> (validators jointly decrypt after ordering).
+Practical threshold encryption today uses elliptic-curve pairings, which are not quantum-safe, and
+Rand's live chain does not implement it. Canggu uses <strong>hash commitments</strong> instead, which only need
+a hash function.</p>
+<h2 id="how-it-is-built-on-the-polkadot-sdk-2"><a class="header" href="#how-it-is-built-on-the-polkadot-sdk-2">How it is built on the Polkadot SDK</a></h2>
+<p>The whole feature is one ordinary FRAME pallet with two calls and one hook.</p>
+<div class="table-wrapper"><table><thead><tr><th>Step</th><th>Pallet item</th><th>What happens</th></tr></thead><tbody>
+<tr><td>Commit (block N)</td><td><code>commit(commitment)</code></td><td>Stores <code>BLAKE2b("canggu/sealed/v1", sender, call, salt)</code> and holds a deposit (1 CGU).</td></tr>
+<tr><td>Reveal (blocks N+1 to N+2)</td><td><code>reveal(N, call, salt)</code></td><td>Must come from the sender named in the commitment. Stores the call.</td></tr>
+<tr><td>Execute (start of block N+3)</td><td><code>on_initialize</code> hook</td><td>Sorts revealed calls of block N by <code>BLAKE2b(commitment ‖ hash of block N)</code> and dispatches them. Returns deposits of revealed commitments; burns the others.</td></tr>
+</tbody></table>
+</div>
+<p>The hook runs at the start of every block, before normal transactions, so the block producer
+cannot place anything in between. The sort key uses the hash of block N, which nobody knows when
+they commit in block N.</p>
+<p>Limits that keep the hook safe: at most 64 commitments per block, each sealed call at most
+1/400 of a slot's time, and only calls of the Balances and Payroll pallets can be sealed.</p>
+<h2 id="what-it-does-not-do"><a class="header" href="#what-it-does-not-do">What it does not do</a></h2>
+<blockquote>
+<p><strong>CAUTION:</strong> Commit-reveal is weaker than threshold encryption in four ways.</p>
+</blockquote>
+<ul>
+<li>A sender can decline to reveal (a "free option"). The deposit of whoever submitted the
+commitment is burned. If a relayer submitted it, the relayer pays, not the sender: a relayer
+must charge senders for that risk.</li>
+<li>A block producer can refuse to include reveals (censorship).</li>
+<li>The producer of block N can try to influence the hash of block N. That only reshuffles
+commitments whose contents nobody can see.</li>
+<li><strong>Back-running</strong> (acting right <em>after</em> a revealed transaction) is not prevented.</li>
+</ul>
+<p>A further idea, not built: commitments could carry a ring proof from the
+<a href="https://github.com/paritytech/verifiable"><code>verifiable</code></a> library, proving "this came from some
+registered account" without a relayer. See <a href="features/../results/rand-protocol.html#is-verifiable-useful-here">Lessons from Rand Protocol</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="zero-knowledge-proofs-groth16-and-sp1"><a class="header" href="#zero-knowledge-proofs-groth16-and-sp1">Zero-knowledge proofs: Groth16 and SP1</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/pallets/zk-verifier"><code>pallets/zk-verifier/</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/zk"><code>zk/</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/sp1/programs/payroll"><code>sp1/programs/payroll</code></a></p>
+<h2 id="in-plain-words-3"><a class="header" href="#in-plain-words-3">In plain words</a></h2>
+<p>An employer wants to prove to the chain: "the salaries I am about to pay add up to this total, and
+they match the salary table I committed to earlier", <strong>without showing any salary</strong>. That is a
+zero-knowledge proof. The proof is made off-chain. The chain only checks it.</p>
+<p>Canggu checks two kinds of proof:</p>
+<div class="table-wrapper"><table><thead><tr><th></th><th>Groth16 (original design)</th><th>SP1 zkVM (added later)</th></tr></thead><tbody>
+<tr><td>How the statement is written</td><td>A hand-built arithmetic circuit (arkworks)</td><td>A normal Rust function, run in the SP1 zkVM</td></tr>
+<tr><td>Proof size</td><td>192 bytes</td><td>1,272,546 bytes</td></tr>
+<tr><td>Check on-chain</td><td>about 2.3 ms</td><td>about 25 ms (about 40 ms in the node)</td></tr>
+<tr><td>Trusted setup</td><td>Yes (single-party here: demo only)</td><td>No</td></tr>
+<tr><td>Quantum-safe</td><td><strong>No</strong> (elliptic-curve pairings)</td><td><strong>Plausibly yes</strong> (hash-based STARK)</td></tr>
+</tbody></table>
+</div>
+<h2 id="how-it-is-built-on-the-polkadot-sdk-3"><a class="header" href="#how-it-is-built-on-the-polkadot-sdk-3">How it is built on the Polkadot SDK</a></h2>
+<p><code>pallet-zk-verifier</code> does not know any particular circuit. It accepts:</p>
+<ul>
+<li><code>register_verifying_key</code> and <code>submit_proof</code> for Groth16 proofs on BLS12-381;</li>
+<li><code>submit_sp1_proof(program, public_values, proof)</code> for SP1 proofs, where <code>program</code> is the SP1
+program's 32-byte verification-key hash.</li>
+</ul>
+<p>A proof that checks out is recorded as a <em>statement</em> (which program, which public values), so
+other pallets or apps can rely on it. A failed proof still pays its full fee.</p>
+<p>Both checks are host functions, like signature verification:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn groth16_bls12_381_verify(vk: &amp;[u8], inputs: &amp;[u8], proof: &amp;[u8]) -&gt; bool;
+fn sp1_v6_verify_compressed(proof: &amp;[u8], public_values: &amp;[u8], vkey_hash: &amp;[u8]) -&gt; bool;
+<span class="boring">}</span></code></pre></pre>
+<p>For SP1 this is not only about speed: SP1's verifier does not compile for <code>wasm32v1-none</code>, the
+target Polkadot SDK runtimes use. A host function is the only way to use it.</p>
+<h2 id="the-payroll-statement"><a class="header" href="#the-payroll-statement">The payroll statement</a></h2>
+<p>Private inputs: a salt and N salaries. Public outputs: the total and a commitment to the salt and
+salaries. The two versions differ in detail:</p>
+<ul>
+<li><strong>Groth16 version</strong> (<code>zk/</code>): the salt is one field element, N is fixed when the keys are made,
+and the public inputs are <code>[total, commitment]</code>. The circuit has a MiMC hash commitment and a
+64-bit range check per salary: 396 × N + 333 constraints (1,917 for 4 salaries). Proving 1,024 salaries takes 2.0 s on
+12 cores.</li>
+<li><strong>SP1 version</strong> (<code>sp1/programs/payroll</code>): the salt is 32 bytes and the public output is
+<code>N ‖ total ‖ commitment</code> (52 bytes). The program is about 25 lines of Rust that sum the salaries
+with overflow checks and commit with Keccak. It needs no circuit design at all. Proving takes about 50
+seconds for 16 salaries and 452 seconds for 262,144 salaries.</li>
+</ul>
+<pre><code class="language-text">$ canggu zk-sp1 --from //Alice --salt "october payroll" --amounts 3000,4500,1250,8000,2200
+payroll proved: 6137 cycles, 1272546 byte proof, 59.2 s
+  submitting a 1.28 MB post-quantum proof
+  ok: the chain verified that 5 private salaries sum to 18950
+node: 🔐 SP1 compressed proof (1272546 bytes): valid in 41.95ms
+</code></pre>
+<h2 id="a-finding-one-proof-many-encodings"><a class="header" href="#a-finding-one-proof-many-encodings">A finding: one proof, many encodings</a></h2>
+<p>SP1's standard verifier accepts several different byte strings for the same valid proof. It
+ignores extra bytes at the end, and it silently reduces numbers that are too large for the field.
+That is harmless for "is this proof valid?", but a chain that stores, hashes or deduplicates proofs
+could be confused. Canggu's wrapper (<code>canggu-sp1-verify</code>) accepts only the exact canonical bytes. A
+test shows both the problem and the fix.</p>
+<h2 id="limits-2"><a class="header" href="#limits-2">Limits</a></h2>
+<ul>
+<li>The Groth16 path is <strong>not quantum-safe</strong> and uses a single-party trusted setup. It is kept for
+comparison.</li>
+<li>SP1 proofs are <strong>1.27 MB</strong>: only a few fit in a block.</li>
+<li>Weights are estimates, not benchmarks.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="signature-compression-with-a-zkvm"><a class="header" href="#signature-compression-with-a-zkvm">Signature compression with a zkVM</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/pallets/pq-intents"><code>pallets/pq-intents/</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/sp1/programs/mldsa-batch"><code>sp1/programs/mldsa-batch</code></a></p>
+<h2 id="in-plain-words-4"><a class="header" href="#in-plain-words-4">In plain words</a></h2>
+<p>Post-quantum signatures are big: 5.3 kB of key and signature per transfer. That size, not CPU
+time, limits the chain to about 370 transfers per second.</p>
+<p><em>Signature compression</em> replaces many signatures with one proof that says "I checked all of these
+signatures, and they are all valid". The chain checks the proof instead of the signatures.</p>
+<p>It works. It is also the clearest example in this project of an idea that only pays off at scale.</p>
+<h2 id="step-1-intent-batches"><a class="header" href="#step-1-intent-batches">Step 1: intent batches</a></h2>
+<p><code>pallet-pq-intents</code> lets users sign <em>intents</em> off-chain ("pay 1 CGU to Bob, this is my intent
+number 3"). A relayer collects up to 640 of them and submits them in one transaction. The runtime
+checks all signatures with <strong>one</strong> host call:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn ml_dsa_65_batch_verify(items: Vec&lt;(public_key, message, signature)&gt;) -&gt; Vec&lt;bool&gt;;
+<span class="boring">}</span></code></pre></pre>
+<p>Each intent then succeeds or fails on its own (bad signature, wrong nonce, not enough balance).
+This one call is also where a GPU can help: see <a href="features/gpu.html">GPU verification</a>.</p>
+<h2 id="step-2-replace-the-signatures-with-one-sp1-proof"><a class="header" href="#step-2-replace-the-signatures-with-one-sp1-proof">Step 2: replace the signatures with one SP1 proof</a></h2>
+<p><code>sp1/programs/mldsa-batch</code> is a Rust program that verifies ML-DSA-65 signatures. It runs inside the
+SP1 zkVM, which produces a proof that the program ran correctly. The program:</p>
+<ol>
+<li>verifies every signature in the batch (if one is invalid, no proof can be made);</li>
+<li>outputs a digest: <code>n ‖ Keccak(context) ‖ Keccak(for each: account ‖ Keccak(message))</code>, where
+<code>account = BLAKE2b(public key)</code>.</li>
+</ol>
+<p><code>submit_compressed</code> then takes only <code>(sender, intent)</code> pairs and the proof: <strong>no keys and no
+signatures</strong>. The runtime rebuilds the digest from the intents and the chain's genesis hash, and
+asks the <code>sp1_v6_verify_compressed</code> host function whether the proof matches. Because the runtime
+computes the digest itself, the proof cannot be reused for other intents or on another chain.</p>
+<pre><code class="language-text">$ canggu intents --count 8 --senders 4 --compressed
+mldsa-batch proved: 5611080 cycles, 1272546 byte proof, 112.7 s
+  relayer submits 1.28 MB (one SP1 proof, no keys or signatures) instead of 0.04 MB
+  block #91: 8 intents executed, 0 rejected {}
+</code></pre>
+<p>The ML-DSA code inside SP1 gives the same answer as the <code>ml-dsa</code> crate on every test case (4,280
+native cases and 460 runs inside the zkVM). SP1's Keccak <em>precompile</em> (a built-in accelerator for
+the hash function that ML-DSA uses heavily) cuts the cost from 1.83 million to 0.70 million cycles
+per signature.</p>
+<h2 id="step-3-the-honest-numbers"><a class="header" href="#step-3-the-honest-numbers">Step 3: the honest numbers</a></h2>
+<div class="table-wrapper"><table><thead><tr><th></th><th></th></tr></thead><tbody>
+<tr><td>One proof, any batch size</td><td>1,272,546 bytes</td></tr>
+<tr><td>One ML-DSA key and signature</td><td>5,261 bytes</td></tr>
+<tr><td><strong>Break-even</strong></td><td><strong>about 242 signatures per proof</strong></td></tr>
+<tr><td>Proving time on the laptop CPU</td><td>about 9.4 s per signature (4 signatures: 72 s; 128 signatures: 1,219 s)</td></tr>
+<tr><td>Time to reach break-even</td><td>about 37 minutes</td></tr>
+<tr><td>Peak memory while proving</td><td>14–17 GB</td></tr>
+</tbody></table>
+</div>
+<p>So the 8-intent demonstration batch is <strong>30 times bigger</strong> than the signatures it replaces.
+Compression only wins with batches of hundreds of signatures, proven on GPUs. SP1's GPU prover
+needs NVIDIA (CUDA), which this laptop does not have.</p>
+<h2 id="the-bigger-design-this-points-to"><a class="header" href="#the-bigger-design-this-points-to">The bigger design this points to</a></h2>
+<p>Rand Protocol (a chain by Dendi Suhubdy) solves the same problem for its own, much larger proofs: GPU
+"aggregators" prove one proof over a window of already-finalised blocks, off the critical path, and
+are paid for it. That pipeline is what would make compression pay off here too. It is not built.
+See <a href="features/../results/rand-protocol.html">Lessons from Rand Protocol</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="parallel-payroll"><a class="header" href="#parallel-payroll">Parallel payroll</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/pallets/parallel-payroll"><code>pallets/parallel-payroll/</code></a></p>
+<h2 id="in-plain-words-5"><a class="header" href="#in-plain-words-5">In plain words</a></h2>
+<p>The Canggu whitepaper's main example is a payroll: an employer pays many employees at once. The
+whitepaper splits it into a CPU part (check the employer's balance and take the total once) and a
+GPU part (credit all employees in parallel).</p>
+<p><code>pallet-parallel-payroll</code> has one call, <code>batch_pay</code>, that does exactly that split:</p>
+<ol>
+<li><strong>Sequential part:</strong> add up the payments (with overflow checks), check the employer can pay,
+and take the total from the employer <strong>once</strong>.</li>
+<li><strong>Parallel part:</strong> credit each recipient.</li>
+</ol>
+<pre><code class="language-text">=== 4. Payroll: one debit, conflict-free parallel credits ===
+  5F3ohmaD…: +1000.0000 CGU
+  5EKGfkiy…: +2000.0000 CGU
+  5F3bxbZ4…: +1500.0000 CGU
+  5FqiwtSw…: +2500.0000 CGU
+  batch paying Bob twice: rejected with Payroll::DuplicateRecipient
+</code></pre>
+<h2 id="what-makes-the-credits-parallel"><a class="header" href="#what-makes-the-credits-parallel">What makes the credits "parallel"</a></h2>
+<p>The pallet refuses a batch in which a recipient appears twice, or in which the employer is also a
+recipient. Then every credit writes to a different account, so the credits can run in any order,
+or at the same time, and the result is the same. That property (<em>disjoint writes</em>) is what a
+parallel executor needs.</p>
+<h2 id="why-the-credits-still-run-one-after-another-today"><a class="header" href="#why-the-credits-still-run-one-after-another-today">Why the credits still run one after another today</a></h2>
+<p>A Polkadot SDK runtime is single-threaded WebAssembly, and each credit is mostly a read and a write
+of the state database. A GPU cannot speed that up. The whitepaper's claim that 10,000 transfers
+take "under 1 ms" on a GPU confuses adding numbers with updating 10,000 database entries.</p>
+<p>So the pallet guarantees the <em>contract</em> (no conflicts), not the speed-up. The speed-up would come
+from executing conflict-free work on several CPU cores, which is where Polkadot's newer designs
+(such as JAM) are going.</p>
+<h2 id="limits-3"><a class="header" href="#limits-3">Limits</a></h2>
+<ul>
+<li>Weights are linear estimates, not benchmarks.</li>
+<li>"Parallel gas" pricing (from the whitepaper) only makes sense once execution is really parallel.
+Until then, the chain charges single-core cost.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="gpu-verification-with-apple-metal"><a class="header" href="#gpu-verification-with-apple-metal">GPU verification with Apple Metal</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/gpu"><code>gpu/</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/blob/main/node/src/accel.rs"><code>node/src/accel.rs</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/blob/main/primitives/src/accel.rs"><code>primitives/src/accel.rs</code></a></p>
+<h2 id="in-plain-words-6"><a class="header" href="#in-plain-words-6">In plain words</a></h2>
+<p>The Canggu whitepaper wants smart contracts that run on GPUs. That does not work on a chain whose
+execution must be deterministic and metered, for the reasons below. What <em>does</em> work is this: when a block contains hundreds of post-quantum
+signatures, a validator can check them all on its GPU, while another validator checks the same
+signatures on its CPU, and both always agree.</p>
+<p>That is what this project does, on the GPU of an Apple M4 Pro laptop through Apple's Metal API.</p>
+<h2 id="why-the-runtime-itself-cannot-run-on-a-gpu"><a class="header" href="#why-the-runtime-itself-cannot-run-on-a-gpu">Why the runtime itself cannot run on a GPU</a></h2>
+<ul>
+<li><strong>Every validator must get identical results, bit for bit.</strong> GPU floating-point maths and the
+order of parallel sums vary between GPU models and drivers.</li>
+<li><strong>Execution must be measured and limited</strong> (weights). A GPU kernel cannot be stopped halfway or
+measured per instruction.</li>
+<li><strong>The chain's state lives in a database tree</strong> that GPU code cannot reach.</li>
+<li><strong>Requiring one vendor's GPU</strong> would shut out every validator without one.</li>
+</ul>
+<h2 id="the-way-that-works-a-gpu-behind-a-host-function"><a class="header" href="#the-way-that-works-a-gpu-behind-a-host-function">The way that works: a GPU behind a host function</a></h2>
+<p>The runtime asks one question per batch: "which of these signatures are valid?" (the
+<code>ml_dsa_65_batch_verify</code> host function). The answer is a list of yes/no values, and it must be
+exactly the same however it is computed. The node chooses how to compute it when it starts:</p>
+<pre><code class="language-text">canggu-node --crypto-backend &lt;cpu | cpu-parallel | metal&gt;
+
+  cpu            reference implementation, 1 core        ← defines the correct answer
+  cpu-parallel   reference implementation, all cores     (default)
+  metal          ML-DSA-65 verification as Metal compute kernels
+                   CPU: decode, checks, hash the key and message, build the challenge
+                   GPU: NTTs → expand matrix A and multiply → UseHint → final SHAKE256 compare
+</code></pre>
+<p>Batches below 64 signatures go to the CPU, because sending work to the GPU has a fixed cost of
+about 0.2 ms.</p>
+<h2 id="how-we-know-it-is-correct"><a class="header" href="#how-we-know-it-is-correct">How we know it is correct</a></h2>
+<p>Correctness matters more than speed here: a GPU that disagreed with the CPU on one signature
+would make its validator reject valid blocks.</p>
+<ol>
+<li><strong>Three implementations agree.</strong> The Metal kernels, a pure-Rust copy of each kernel, and the
+RustCrypto <code>ml-dsa</code> crate were compared on <strong>5,454 cases</strong>: 2,504 valid signatures and 2,950
+damaged ones (flipped bits in every field, bad hints, edge values, wrong lengths and contexts).
+All three gave the same answer every time.</li>
+<li><strong>A self-test at start-up.</strong> The node checks the GPU's arithmetic against the CPU (including
+one step for <em>every</em> possible input) before it accepts the GPU. During development this test
+caught a deliberately planted bug that real signatures never trigger.</li>
+<li><strong>Two validators, two kinds of hardware.</strong> <code>scripts/mixed-backends.sh</code> runs Alice on the GPU and
+Bob on one CPU core. They take turns making blocks, so every batch is checked by the GPU on one
+validator and by the CPU on the other:</li>
+</ol>
+<pre><code class="language-text">#6:  authored by Alice (metal), imported by Bob (cpu)
+#7:  authored by Bob (cpu), imported by Alice (metal)
+#8:  authored by Alice (metal), imported by Bob (cpu)
+#9:  authored by Bob (cpu), imported by Alice (metal)
+#10: authored by Alice (metal), imported by Bob (cpu)
+#11: authored by Bob (cpu), imported by Alice (metal)
+blocks 1..11: identical
+finalized: alice #11, bob #11
+</code></pre>
+<h2 id="how-fast-it-is"><a class="header" href="#how-fast-it-is">How fast it is</a></h2>
+<p>Measured with <code>cargo run --release --bin bench</code> (medians, Apple M4 Pro). "GPU busy" is measured by
+Metal itself.</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Signatures in batch</th><th style="text-align: right">1 CPU core</th><th style="text-align: right">12 CPU cores</th><th style="text-align: right">Metal</th><th style="text-align: right">GPU busy</th><th style="text-align: right">Metal vs 12 cores</th></tr></thead><tbody>
+<tr><td style="text-align: right">1</td><td style="text-align: right">0.060 ms</td><td style="text-align: right">0.060 ms</td><td style="text-align: right">0.330 ms</td><td style="text-align: right">0.203 ms</td><td style="text-align: right">0.18×</td></tr>
+<tr><td style="text-align: right">64</td><td style="text-align: right">3.77 ms</td><td style="text-align: right">0.61 ms</td><td style="text-align: right">0.45 ms</td><td style="text-align: right">0.23 ms</td><td style="text-align: right">1.35×</td></tr>
+<tr><td style="text-align: right">256</td><td style="text-align: right">15.2 ms</td><td style="text-align: right">1.95 ms</td><td style="text-align: right">0.85 ms</td><td style="text-align: right">0.43 ms</td><td style="text-align: right">2.29×</td></tr>
+<tr><td style="text-align: right">1,024</td><td style="text-align: right">61.2 ms</td><td style="text-align: right">7.52 ms</td><td style="text-align: right">2.12 ms</td><td style="text-align: right">1.50 ms</td><td style="text-align: right">3.55×</td></tr>
+<tr><td style="text-align: right">4,096</td><td style="text-align: right">246 ms</td><td style="text-align: right">29.0 ms</td><td style="text-align: right">6.51 ms</td><td style="text-align: right">5.59 ms</td><td style="text-align: right"><strong>4.45×</strong> (630,000 signatures/s)</td></tr>
+</tbody></table>
+</div>
+<p>In a live node, 640 signatures took 8.4 ms with 4.1 ms of GPU time. That is slower than the
+benchmark, because the node copies the batch into the host function and, on this machine, a macOS
+background service was using the GPU at the same time.</p>
+<h2 id="limits-4"><a class="header" href="#limits-4">Limits</a></h2>
+<ul>
+<li><strong>Fees do not change.</strong> Weights are still charged at single-core CPU speed, because every
+validator must keep up, with or without a GPU. A GPU makes blocks faster to process; it does not
+raise the chain's limits.</li>
+<li><strong>Apple Metal only.</strong> An NVIDIA (CUDA) backend would plug into the same interface, with the same
+tests. It is not written.</li>
+<li><strong>Small batches lose.</strong> Below about 64 signatures the CPU is faster.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="sub-second-finality"><a class="header" href="#sub-second-finality">Sub-second finality</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/blob/main/node/src/service.rs"><code>node/src/service.rs</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/blob/main/scripts/finality.sh"><code>scripts/finality.sh</code></a></p>
+<h2 id="in-plain-words-7"><a class="header" href="#in-plain-words-7">In plain words</a></h2>
+<p>A block is <em>final</em> when it can never be undone. The Canggu whitepaper asks for finality in under a
+second. With the Polkadot SDK's default settings, a block becomes final about <strong>5 seconds</strong> after
+it appears, which makes it look impossible.</p>
+<p>It is not impossible. Two cautious default settings cause almost all of the delay. With both
+changed, two validators on one computer finalised blocks in a median of <strong>242 ms</strong> with the normal
+2-second blocks, and <strong>121 ms</strong> when the block time was also shortened to 500 ms.</p>
+<h2 id="where-the-5-seconds-come-from"><a class="header" href="#where-the-5-seconds-come-from">Where the 5 seconds come from</a></h2>
+<p>GRANDPA, the finality protocol, works in voting rounds. Two settings slow it down:</p>
+<ol>
+<li><strong>Vote lag.</strong> By default validators vote for the block <em>two behind</em> the newest one, in case
+the newest one is about to be replaced by a competing block. With 2-second blocks, that alone
+adds 4 seconds. Lowering it does not make finality unsafe: a block is final only when more than
+two-thirds of validators agree, and votes for a block that loses simply finalise the last block
+both sides share.</li>
+<li><strong>Gossip duration</strong> (default 333 ms). A validator waits up to 2× this before its first vote and
+4× before its second.</li>
+</ol>
+<p>Both are now node options: <code>--grandpa-vote-lag</code> and <code>--grandpa-gossip-ms</code>. The block time is a
+build option: <code>CANGGU_SLOT_MS</code>.</p>
+<h2 id="what-we-measured-1"><a class="header" href="#what-we-measured-1">What we measured</a></h2>
+<p><code>scripts/finality.sh</code> starts two validators and measures, for each block, the time from its first
+appearance to its finalisation.</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Block time</th><th style="text-align: right">Gossip</th><th style="text-align: right">Vote lag</th><th style="text-align: right">Finality, median</th><th style="text-align: right">90th percentile</th></tr></thead><tbody>
+<tr><td style="text-align: right">2 s</td><td style="text-align: right">333 ms</td><td style="text-align: right">2 (default)</td><td style="text-align: right">5 s</td><td style="text-align: right">6 s</td></tr>
+<tr><td style="text-align: right">2 s</td><td style="text-align: right">333 ms</td><td style="text-align: right">0</td><td style="text-align: right">1 s</td><td style="text-align: right">2 s</td></tr>
+<tr><td style="text-align: right">2 s</td><td style="text-align: right">100 ms</td><td style="text-align: right">0</td><td style="text-align: right">430 ms</td><td style="text-align: right">584 ms</td></tr>
+<tr><td style="text-align: right">2 s</td><td style="text-align: right">50 ms</td><td style="text-align: right">0</td><td style="text-align: right"><strong>242 ms</strong></td><td style="text-align: right">288 ms</td></tr>
+<tr><td style="text-align: right">500 ms</td><td style="text-align: right">333 ms</td><td style="text-align: right">2</td><td style="text-align: right">2 s</td><td style="text-align: right">3 s</td></tr>
+<tr><td style="text-align: right">500 ms</td><td style="text-align: right">50 ms</td><td style="text-align: right">0</td><td style="text-align: right"><strong>217 ms</strong></td><td style="text-align: right">293 ms</td></tr>
+<tr><td style="text-align: right">500 ms</td><td style="text-align: right">25 ms</td><td style="text-align: right">0</td><td style="text-align: right"><strong>121 ms</strong></td><td style="text-align: right">173 ms</td></tr>
+</tbody></table>
+</div>
+<h2 id="reproduce-it"><a class="header" href="#reproduce-it">Reproduce it</a></h2>
+<ol>
+<li>Run the measurement with 2-second blocks:
+<pre><code class="language-bash">GOSSIP_MS=50 VOTE_LAG=0 scripts/finality.sh 40
+</code></pre>
+</li>
+<li>Build with 500 ms blocks, then measure again:
+<pre><code class="language-bash">CANGGU_SLOT_MS=500 cargo build --release -p canggu-node
+CANGGU_SLOT_MS=500 GOSSIP_MS=50 VOTE_LAG=0 scripts/finality.sh 30
+</code></pre>
+</li>
+</ol>
+<blockquote>
+<p><strong>CAUTION:</strong> A chain cannot change its block time after it starts. Use <code>CANGGU_SLOT_MS</code> only for
+new test chains.</p>
+</blockquote>
+<h2 id="how-to-read-these-numbers"><a class="header" href="#how-to-read-these-numbers">How to read these numbers</a></h2>
+<blockquote>
+<p><strong>CAUTION:</strong> These numbers come from two validators on one computer. Messages between them take
+almost no time. A real network adds delay to every voting round.</p>
+</blockquote>
+<ul>
+<li>The gossip duration must be longer than the message delay between validators.</li>
+<li>Each round needs about two message delays.</li>
+<li>A validator set with 50–100 ms between members should still finalise in well under a second.
+A set spread around the world, with 200 ms or more between members, probably will not.</li>
+</ul>
+<p>Nothing here was tested over a real network. The node's defaults stay at the Polkadot SDK's
+cautious values.</p>
+<h2 id="why-not-use-polkadots-relay-chain"><a class="header" href="#why-not-use-polkadots-relay-chain">Why not use Polkadot's relay chain?</a></h2>
+<p>Running Canggu as a Polkadot <em>parachain</em> would give it shared security, but finality would come
+from the relay chain and be slower. It would also remove Canggu's custom host functions (relay
+validators only have the standard ones), so post-quantum signature checks, proof checks and the GPU
+backend would not work as built here.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="all-the-numbers"><a class="header" href="#all-the-numbers">All the numbers</a></h1>
+<p>Every number below was measured on one Apple M4 Pro laptop (12 CPU cores, 24 GB memory), with
+release builds. Other hardware will give different numbers.</p>
+<h2 id="post-quantum-accounts-1"><a class="header" href="#post-quantum-accounts-1">Post-quantum accounts</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Measurement</th><th>Value</th></tr></thead><tbody>
+<tr><td>ML-DSA-65 public key</td><td>1,952 B</td></tr>
+<tr><td>ML-DSA-65 signature</td><td>3,309 B</td></tr>
+<tr><td>Signed transfer</td><td>5,345 B</td></tr>
+<tr><td>Sign (1 core)</td><td>about 0.75 ms</td></tr>
+<tr><td>Verify (native host function, 1 core)</td><td>61 µs</td></tr>
+<tr><td>Block capacity (5 MiB blocks, 75 % for normal transactions)</td><td>about 735 transfers</td></tr>
+<tr><td>Throughput (2 s blocks)</td><td>about 370 transfers per second, limited by block space</td></tr>
+</tbody></table>
+</div>
+<h2 id="gpu-batch-verification-ml-dsa-65"><a class="header" href="#gpu-batch-verification-ml-dsa-65">GPU batch verification (ML-DSA-65)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Batch</th><th style="text-align: right">1 CPU core</th><th style="text-align: right">12 CPU cores</th><th style="text-align: right">Metal GPU</th><th style="text-align: right">Metal vs 12 cores</th></tr></thead><tbody>
+<tr><td style="text-align: right">1</td><td style="text-align: right">0.060 ms</td><td style="text-align: right">0.060 ms</td><td style="text-align: right">0.330 ms</td><td style="text-align: right">0.18×</td></tr>
+<tr><td style="text-align: right">64</td><td style="text-align: right">3.77 ms</td><td style="text-align: right">0.61 ms</td><td style="text-align: right">0.45 ms</td><td style="text-align: right">1.35×</td></tr>
+<tr><td style="text-align: right">256</td><td style="text-align: right">15.2 ms</td><td style="text-align: right">1.95 ms</td><td style="text-align: right">0.85 ms</td><td style="text-align: right">2.29×</td></tr>
+<tr><td style="text-align: right">1,024</td><td style="text-align: right">61.2 ms</td><td style="text-align: right">7.52 ms</td><td style="text-align: right">2.12 ms</td><td style="text-align: right">3.55×</td></tr>
+<tr><td style="text-align: right">4,096</td><td style="text-align: right">246 ms</td><td style="text-align: right">29.0 ms</td><td style="text-align: right">6.51 ms</td><td style="text-align: right">4.45×</td></tr>
+</tbody></table>
+</div>
+<p>Correctness: 5,454 test cases, all three implementations agree.</p>
+<h2 id="groth16-bls12-381-payroll-circuit"><a class="header" href="#groth16-bls12-381-payroll-circuit">Groth16 (BLS12-381) payroll circuit</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Salaries</th><th style="text-align: right">Constraints</th><th style="text-align: right">Setup</th><th style="text-align: right">Prove</th><th style="text-align: right">Verify</th><th style="text-align: right">Proof</th></tr></thead><tbody>
+<tr><td style="text-align: right">4</td><td style="text-align: right">1,917</td><td style="text-align: right">25 ms</td><td style="text-align: right">33 ms</td><td style="text-align: right">2.5 ms</td><td style="text-align: right">192 B</td></tr>
+<tr><td style="text-align: right">16</td><td style="text-align: right">6,669</td><td style="text-align: right">57 ms</td><td style="text-align: right">68 ms</td><td style="text-align: right">2.3 ms</td><td style="text-align: right">192 B</td></tr>
+<tr><td style="text-align: right">64</td><td style="text-align: right">25,677</td><td style="text-align: right">176 ms</td><td style="text-align: right">185 ms</td><td style="text-align: right">2.3 ms</td><td style="text-align: right">192 B</td></tr>
+<tr><td style="text-align: right">256</td><td style="text-align: right">101,709</td><td style="text-align: right">0.60 s</td><td style="text-align: right">0.57 s</td><td style="text-align: right">2.3 ms</td><td style="text-align: right">192 B</td></tr>
+<tr><td style="text-align: right">1,024</td><td style="text-align: right">405,837</td><td style="text-align: right">2.3 s</td><td style="text-align: right">2.0 s</td><td style="text-align: right">2.3 ms</td><td style="text-align: right">192 B</td></tr>
+</tbody></table>
+</div>
+<p>An early version of the circuit scaled badly: proving 256 salaries took 119 s. Storing the running
+hash as its own variable after each step fixed it (0.57 s).</p>
+<h2 id="sp1-zkvm-cpu-prover"><a class="header" href="#sp1-zkvm-cpu-prover">SP1 zkVM (CPU prover)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Measurement</th><th>Value</th></tr></thead><tbody>
+<tr><td>Compressed proof size (any program, any input)</td><td>1,272,546 B</td></tr>
+<tr><td>Verification, native</td><td>25.5 ms</td></tr>
+<tr><td>Verification, through the node's host function</td><td>about 40 ms</td></tr>
+<tr><td>ML-DSA-65 inside SP1, with / without Keccak precompile</td><td>700,713 / 1,833,609 cycles per signature</td></tr>
+<tr><td>Proving <code>mldsa-batch</code>: 4 / 16 / 64 / 128 signatures</td><td>72 s / 204 s / 617 s / 1,219 s</td></tr>
+<tr><td>Proving <code>payroll</code>: 16 / 4,096 / 65,536 / 262,144 salaries</td><td>50 s / 54 s / 141 s / 452 s</td></tr>
+<tr><td>Peak memory while proving (memory-safe settings)</td><td>14–17 GB</td></tr>
+<tr><td>Break-even against raw keys and signatures</td><td>about 242 signatures per proof</td></tr>
+</tbody></table>
+</div>
+<h2 id="finality-two-validators-one-computer"><a class="header" href="#finality-two-validators-one-computer">Finality (two validators, one computer)</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Block time</th><th style="text-align: right">Gossip</th><th style="text-align: right">Vote lag</th><th style="text-align: right">Median</th><th style="text-align: right">90th percentile</th></tr></thead><tbody>
+<tr><td style="text-align: right">2 s</td><td style="text-align: right">333 ms</td><td style="text-align: right">2 (default)</td><td style="text-align: right">5 s</td><td style="text-align: right">6 s</td></tr>
+<tr><td style="text-align: right">2 s</td><td style="text-align: right">50 ms</td><td style="text-align: right">0</td><td style="text-align: right">242 ms</td><td style="text-align: right">288 ms</td></tr>
+<tr><td style="text-align: right">500 ms</td><td style="text-align: right">50 ms</td><td style="text-align: right">0</td><td style="text-align: right">217 ms</td><td style="text-align: right">293 ms</td></tr>
+<tr><td style="text-align: right">500 ms</td><td style="text-align: right">25 ms</td><td style="text-align: right">0</td><td style="text-align: right">121 ms</td><td style="text-align: right">173 ms</td></tr>
+</tbody></table>
+</div>
+<h2 id="tests"><a class="header" href="#tests">Tests</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Workspace</th><th>Tests</th></tr></thead><tbody>
+<tr><td>Main (<code>cargo test --release --workspace</code>)</td><td>67 (66 run, 1 ignored: a fixture writer)</td></tr>
+<tr><td>SP1 host workspace (<code>sp1/</code>)</td><td>23 (21 run, 2 ignored: full proofs)</td></tr>
+<tr><td>SP1 verifier crate</td><td>6</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="what-the-original-design-got-wrong"><a class="header" href="#what-the-original-design-got-wrong">What the original design got wrong</a></h1>
+<p>Building a design is the fastest way to test it. These are the claims from the Canggu v1.3
+whitepaper that did not hold up. They are listed so that readers do not repeat them, not to take
+anything away from the authors' ambition.</p>
+<div class="table-wrapper"><table><thead><tr><th>v1.3 says</th><th>What is actually true</th><th>What this rebuild does</th></tr></thead><tbody>
+<tr><td>Users generate key pairs with <strong>Kyber</strong> for wallet operations.</td><td>Kyber (ML-KEM) is a key-exchange scheme. It cannot sign anything.</td><td>Accounts use ML-DSA-65 (Dilithium).</td></tr>
+<tr><td>Transactions are hashed with <strong>XMSS</strong>.</td><td>XMSS is a <em>signature</em> scheme, and a stateful one (reusing a state breaks it).</td><td>Hashing uses BLAKE2b-256, which keeps about 128 bits of security against quantum computers.</td></tr>
+<tr><td>ZK-SNARKs on <strong>"quantum-resistant curves (e.g., BLS12-381 with NIST-approved tweaks)"</strong>.</td><td>No such curve exists. Pairing-based proofs like Groth16 on BLS12-381 are broken by Shor's algorithm.</td><td>Keeps Groth16 for comparison, and adds quantum-safe SP1 STARK proofs.</td></tr>
+<tr><td>A <strong>DAG mempool makes MEV computationally infeasible</strong> (reordering costs Ω(n²)).</td><td>Sorting a DAG takes linear time, and any valid order is a valid block. A producer has <em>more</em> freedom, not less.</td><td>The DAG enforces the dependencies users declare. Front-running is handled separately by sealed ordering.</td></tr>
+<tr><td>ZK verification is <strong>O(1)</strong>.</td><td>Groth16 verification grows with the number of public inputs, though not with circuit size.</td><td>No change; just stated correctly.</td></tr>
+<tr><td><strong>Solana</strong> executes transactions sequentially in one thread.</td><td>Solana's runtime runs non-conflicting transactions in parallel.</td><td>The payroll pallet guarantees non-conflicting credits, the same property.</td></tr>
+<tr><td><strong>10,000 stablecoin transfers in under 1 ms</strong> on a GPU.</td><td>The work is updating 10,000 database entries, not adding numbers. A GPU does not help with that.</td><td>The GPU is used for signature verification instead, where it does help.</td></tr>
+<tr><td><strong>Sub-second finality</strong> with a Tower-BFT-style design.</td><td>Possible with GRANDPA once two defaults are changed (measured on one computer: 242 ms with 2 s blocks, 121 ms with 500 ms blocks).</td><td>Two node options; network latency still to be measured.</td></tr>
+<tr><td><strong>50,000+ transactions per second</strong> with Dilithium signatures.</td><td>At 5.3 kB per transfer that is about 265 MB/s of data. Measured capacity is about 370 transfers per second.</td><td>Signature compression with SP1 shows the way, but needs GPU provers and large batches.</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="lessons-from-rand-protocol"><a class="header" href="#lessons-from-rand-protocol">Lessons from Rand Protocol</a></h1>
+<p><a href="https://github.com/randprotocol/fullnode">Rand Protocol</a> is a later blockchain by <strong>Dendi
+Suhubdy</strong>, one of Canggu's original authors. Its whitepaper,
+<a href="http://randprotocol.org/papers/randprotocol.pdf"><em>Randprotocol: Confidential Arbitrary Computations</em></a>,
+is by <strong>Dendi Suhubdy and Anish Mohammed</strong>. It makes many of the same choices (Dilithium, STARK
+proofs, GPU provers) on a different foundation. Comparing the two explains a lot about both.</p>
+<h2 id="one-decision-explains-most-differences"><a class="header" href="#one-decision-explains-most-differences">One decision explains most differences</a></h2>
+<p>Rand is a <strong>fully shielded</strong> chain: no accounts, no balances, no visible senders. Canggu, like
+every Polkadot SDK chain, is an <strong>account</strong> chain.</p>
+<div class="table-wrapper"><table><thead><tr><th></th><th>Rand Protocol</th><th>Canggu on the Polkadot SDK</th><th>Why</th></tr></thead><tbody>
+<tr><td>Authorising a transfer</td><td>No signature. A STARK proof shows "I own these notes".</td><td>One ML-DSA-65 signature per transaction.</td><td>A signature names the signer, which a privacy chain cannot allow. On an account chain the sender is public anyway, and a signature is about 250× smaller (5.3 kB vs about 1.3 MB) and about 130,000× faster to make (0.75 ms vs about 100 s).</td></tr>
+<tr><td>Cost per transfer</td><td>About 1.3 MB; about 3 transfers per 4 MiB block</td><td>5.3 kB; about 740 per block</td><td>Rand pays for privacy and for strong STARK soundness in bytes.</td></tr>
+<tr><td>What gets compressed</td><td>Proofs: GPU aggregators make one recursive proof over a window of finalised blocks ("sealing").</td><td>Signatures, per intent batch, with one SP1 proof.</td><td>At 1.3 MB per transfer Rand <em>must</em> aggregate. At 5.3 kB Canggu only gains above about 242 signatures.</td></tr>
+<tr><td>Old history</td><td>Rand chose to aggregate proofs rather than simply drop them, so that a new node checks proofs instead of trusting old finality signatures (it prunes other history in other ways).</td><td>The Polkadot SDK already trusts finality proofs for fast sync, so pruning old blocks fits its model.</td><td>Different trust models.</td></tr>
+<tr><td>Where the GPU is</td><td>In a separate, paid aggregator market. Validators use CPUs only.</td><td>Optional, behind a host function, on validators.</td><td>Both keep GPUs out of what consensus requires.</td></tr>
+<tr><td>Consensus signatures</td><td>HotStuff with Dilithium2 votes: post-quantum throughout.</td><td>Aura (Sr25519) and GRANDPA (Ed25519): classic.</td><td>Rand wrote its own consensus. Changing these in the Polkadot SDK is a larger node change.</td></tr>
+<tr><td>Proof system</td><td>Plonky3 STARKs</td><td>Groth16, plus SP1 STARKs</td><td>Both end at hash-based STARKs of about 1.3 MB.</td></tr>
+<tr><td>Front-running</td><td>Contents hidden, but the leader still orders by fee. The paper proves front-running is removed only under three conditions, which its live chain does not meet.</td><td>DAG dependencies, no tips, and sealed ordering.</td><td>The theorem transfers to an account chain.</td></tr>
+</tbody></table>
+</div>
+<h2 id="what-we-took"><a class="header" href="#what-we-took">What we took</a></h2>
+<ol>
+<li><strong>The corrected front-running theorem</strong> (Proposition 14.2 and Theorem 15.4), adapted with hash
+commitments instead of threshold encryption. See <a href="results/../features/sealed-ordering.html">Sealed ordering</a>.</li>
+<li><strong>The signature-compression analysis.</strong> Rand's documents give the architecture (pipelined
+aggregation over finalised blocks, a GPU prover market, "the proof that covers the most wins",
+proofs bound to their maker) and its price: 26 minutes to prove an aggregate of one transfer in
+a test setup, and at least 512 GB of memory for a production proof. Canggu built the core (one
+SP1 proof per batch) and measured the same lesson. See
+<a href="results/../features/signature-compression.html">Signature compression</a>.</li>
+</ol>
+<h2 id="is-verifiable-useful-here"><a class="header" href="#is-verifiable-useful-here">Is <code>verifiable</code> useful here?</a></h2>
+<p><a href="https://github.com/paritytech/verifiable"><code>verifiable</code></a> proves <em>"I am one of these registered
+members"</em> without saying which one. It uses ring VRFs on the Bandersnatch curve, with 752-byte
+proofs and one unlinkable 32-byte alias per member per context.</p>
+<ul>
+<li><strong>Useful for front-running metadata.</strong> A sealed commitment could carry a ring proof that it came
+from some registered account, with one alias per epoch as a rate limit, instead of going through
+a relayer.</li>
+<li><strong>Not useful for signature compression.</strong> It provides anonymity, not aggregation; its proofs
+are larger than a plain signature and do not combine.</li>
+<li><strong>Not post-quantum.</strong> Its security rests on elliptic curves. Its interface, though, could front a
+post-quantum implementation (for example a STARK over a Merkle tree with nullifiers, which is how
+Rand's shielded pool works).</li>
+</ul>
+<p>It was evaluated but not used in the code.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="why-the-polkadot-sdk-made-this-possible"><a class="header" href="#why-the-polkadot-sdk-made-this-possible">Why the Polkadot SDK made this possible</a></h1>
+<p>Canggu's whitepaper reads like a chain built from scratch: its own consensus, its own mempool, its
+own signature scheme, its own execution model. That is normally years of work. On the Polkadot SDK,
+almost every one of those turned out to be a <strong>hook the framework already had</strong>. This is the main
+lesson of the project.</p>
+<h2 id="every-big-idea-mapped-onto-an-existing-extension-point"><a class="header" href="#every-big-idea-mapped-onto-an-existing-extension-point">Every big idea mapped onto an existing extension point</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Canggu idea</th><th>What you might expect to build</th><th>What the Polkadot SDK already had</th><th>How much new code</th></tr></thead><tbody>
+<tr><td>Post-quantum signatures</td><td>A new transaction format and a new node</td><td>The runtime's signature type is a type parameter (<code>Verify</code>)</td><td>One enum and one host function</td></tr>
+<tr><td>DAG mempool</td><td>A new mempool</td><td>The transaction pool already orders by <code>provides</code>/<code>requires</code> tags</td><td>One transaction extension</td></tr>
+<tr><td>No fee auction</td><td>Changes to block building</td><td>Fees are a transaction extension</td><td>A wrapper around the standard one</td></tr>
+<tr><td>Expensive cryptography</td><td>A faster VM</td><td>Host functions: native code the runtime can call</td><td>One function per algorithm</td></tr>
+<tr><td>GPU acceleration</td><td>A GPU-aware runtime</td><td>The same host functions: the node picks how to compute them</td><td>A backend behind one trait</td></tr>
+<tr><td>zkVM proofs</td><td>Protocol changes</td><td>A pallet plus a host function</td><td>Two calls and one host function</td></tr>
+<tr><td>Rotating leader + BFT finality</td><td>A consensus implementation</td><td>Aura + GRANDPA in the template</td><td>Two node options for faster finality</td></tr>
+<tr><td>Sealed ordering</td><td>Mempool and block-builder changes</td><td>A pallet hook that runs at the start of every block</td><td>One pallet</td></tr>
+<tr><td>Upgrades without forks</td><td>Coordination</td><td>The runtime is Wasm stored on-chain</td><td>Nothing</td></tr>
+</tbody></table>
+</div>
+<p>The work went into the parts that are actually new: the Metal GPU kernels and the tests that prove
+they match the CPU, the SP1 programs and their measurements, and getting the details right.</p>
+<h2 id="the-pattern-to-copy"><a class="header" href="#the-pattern-to-copy">The pattern to copy</a></h2>
+<p>If you want to build something "very complicated" on the Polkadot SDK, the pattern from this
+project is:</p>
+<ol>
+<li><strong>Keep the rules in the runtime.</strong> Pallets and transaction extensions decide <em>what</em> must be
+true.</li>
+<li><strong>Put heavy mathematics in host functions.</strong> The node decides <em>how</em> to compute it: native code,
+all cores, or a GPU, as long as the answer is always identical.</li>
+<li><strong>Use the existing machinery before inventing new machinery.</strong> The transaction pool's tags,
+the fee extension and the block-initialisation hook replaced what looked like three new
+subsystems.</li>
+<li><strong>Measure everything.</strong> Several of the most important results here are negative (signature
+compression does not pay off on a laptop; 50,000 TPS does not fit), and they came from
+measuring, not from reasoning.</li>
+</ol>
+<h2 id="where-the-framework-pushed-back"><a class="header" href="#where-the-framework-pushed-back">Where the framework pushed back</a></h2>
+<p>The Polkadot SDK is not magic, and the places where it resisted are instructive:</p>
+<ul>
+<li><strong>Consensus keys.</strong> Making block production and finality post-quantum means changing the node's
+keystore and GRANDPA's vote format. That is deep node work, not a pallet.</li>
+<li><strong>Custom host functions tie you to a standalone chain.</strong> A Polkadot parachain is re-executed by
+relay-chain validators that only have the standard host functions.</li>
+<li><strong>Large proofs.</strong> Blocks have a size limit, and 1.27 MB SP1 proofs use a lot of it.</li>
+<li><strong>Dependencies move fast.</strong> Tooling around exact dependency versions took real effort.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="limitations-and-open-problems"><a class="header" href="#limitations-and-open-problems">Limitations and open problems</a></h1>
+<blockquote>
+<p><strong>WARNING:</strong> This is a research prototype. It is not audited. Do not use it to hold or move real
+value.</p>
+</blockquote>
+<h2 id="security"><a class="header" href="#security">Security</a></h2>
+<ul>
+<li><strong>Only accounts are post-quantum.</strong> Block production (Aura, Sr25519), finality votes (GRANDPA,
+Ed25519) and the peer-to-peer handshake still use classic cryptography. A quantum attacker could
+forge blocks or votes.</li>
+<li><strong>The Groth16 path is not post-quantum</strong> and uses a single-party trusted setup (demonstration
+only). The SP1 path is the quantum-safe one.</li>
+<li><strong>Weights are estimates.</strong> No pallet has benchmarked weights, so fees and block limits are
+approximate.</li>
+<li><strong>Nothing is audited:</strong> not the pallets, not the GPU kernels, not the SP1 programs, not the MiMC
+circuit.</li>
+</ul>
+<h2 id="front-running"><a class="header" href="#front-running">Front-running</a></h2>
+<ul>
+<li>Sealed ordering uses commit-reveal, not threshold encryption. Senders can refuse to reveal (the
+committer's deposit is burned; with a relayer, the relayer loses it), block producers can censor
+reveals, and back-running is not prevented.</li>
+<li>Dependency ordering only protects transactions that declare their parents.</li>
+</ul>
+<h2 id="performance-and-scale"><a class="header" href="#performance-and-scale">Performance and scale</a></h2>
+<ul>
+<li>About <strong>370 transfers per second</strong>, limited by the size of post-quantum signatures.</li>
+<li><strong>Signature compression is a net loss</strong> below about 242 signatures per proof, and proving that
+many takes about 37 minutes on a laptop CPU. A GPU prover market is not built.</li>
+<li><strong>The GPU backend is Apple Metal only.</strong> There is no NVIDIA backend.</li>
+<li><strong>Finality was measured on one computer only.</strong> Real network delay was not tested.</li>
+</ul>
+<h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
+<ul>
+<li>Everything was built and measured on one Apple M4 Pro laptop. Linux builds and the <code>Dockerfile</code>
+are not tested.</li>
+<li>The CI workflow in the repository is from the original project. It runs only on pull requests and
+does not match the current code.</li>
+</ul>
+<h2 id="open-problems-worth-working-on"><a class="header" href="#open-problems-worth-working-on">Open problems worth working on</a></h2>
+<ol>
+<li>Post-quantum session keys for Aura and GRANDPA.</li>
+<li>Threshold-encrypted mempool (needs post-quantum threshold decryption, an open research topic).</li>
+<li>Anonymous sealed commitments with ring proofs.</li>
+<li>GPU provers and windowed proof aggregation, following Rand Protocol's design.</li>
+<li>Benchmarked weights, and finality measured over a real network.</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="repository-map"><a class="header" href="#repository-map">Repository map</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Path</th><th>Crate</th><th>What it contains</th><th>Read about it in</th></tr></thead><tbody>
+<tr><td><code>primitives/</code></td><td><code>canggu-primitives</code></td><td><code>CangguSignature</code>, the host functions, backend selection, development keys</td><td><a href="appendix/../features/post-quantum-accounts.html">Post-quantum accounts</a></td></tr>
+<tr><td><code>pallets/dag-ordering/</code></td><td><code>canggu-dag-ordering</code></td><td><code>CheckDagParents</code>, <code>ChargeTransactionPaymentNoTip</code></td><td><a href="appendix/../features/dag-ordering.html">Transactions that wait for each other</a></td></tr>
+<tr><td><code>pallets/sealed-ordering/</code></td><td><code>pallet-sealed-ordering</code></td><td>Commit, reveal, canonical execution</td><td><a href="appendix/../features/sealed-ordering.html">Sealed ordering</a></td></tr>
+<tr><td><code>pallets/zk-verifier/</code></td><td><code>pallet-zk-verifier</code></td><td>Groth16 and SP1 proof verification</td><td><a href="appendix/../features/zk-proofs.html">Zero-knowledge proofs</a></td></tr>
+<tr><td><code>pallets/pq-intents/</code></td><td><code>pallet-pq-intents</code></td><td>Batches of signed intents; compressed batches</td><td><a href="appendix/../features/signature-compression.html">Signature compression</a></td></tr>
+<tr><td><code>pallets/parallel-payroll/</code></td><td><code>pallet-parallel-payroll</code></td><td>One debit, conflict-free credits</td><td><a href="appendix/../features/payroll.html">Parallel payroll</a></td></tr>
+<tr><td><code>zk/</code></td><td><code>canggu-zk</code></td><td>Groth16 private-payroll circuit (off-chain)</td><td><a href="appendix/../features/zk-proofs.html">Zero-knowledge proofs</a></td></tr>
+<tr><td><code>gpu/</code></td><td><code>canggu-gpu</code></td><td>ML-DSA-65 batch verification on Metal, CPU copy, tests</td><td><a href="appendix/../features/gpu.html">GPU verification</a></td></tr>
+<tr><td><code>gpu/bench/</code></td><td><code>canggu-gpu-bench</code></td><td>Metal vs CPU benchmark</td><td><a href="appendix/../results/numbers.html">All the numbers</a></td></tr>
+<tr><td><code>runtime/</code></td><td><code>canggu-runtime</code></td><td>The FRAME runtime that combines all pallets</td><td><a href="appendix/../background/architecture.html">The big picture</a></td></tr>
+<tr><td><code>node/</code></td><td><code>canggu-node</code></td><td>The node: Aura, GRANDPA, host functions, backend and finality options</td><td><a href="appendix/../background/polkadot-sdk-primer.html">The Polkadot SDK in ten minutes</a></td></tr>
+<tr><td><code>cli/</code></td><td><code>canggu-cli</code></td><td>The <code>canggu</code> wallet, demo and benchmarks</td><td><a href="appendix/../getting-started/cli.html">Use the <code>canggu</code> command line</a></td></tr>
+<tr><td><code>sp1/</code></td><td>separate workspace</td><td>SP1 programs (<code>mldsa-batch</code>, <code>payroll</code>), the <code>canggu-sp1</code> prover, <code>canggu-sp1-verify</code></td><td><a href="appendix/../features/signature-compression.html">Signature compression</a></td></tr>
+<tr><td><code>scripts/</code></td><td>—</td><td><code>mixed-backends.sh</code>, <code>finality.sh</code></td><td><a href="appendix/../getting-started/build-and-run.html">Build and start a chain</a></td></tr>
+<tr><td><code>docs/</code></td><td>—</td><td>This book</td><td><a href="appendix/about-these-docs.html">About these docs</a></td></tr>
+</tbody></table>
+</div>
+<p>The Polkadot SDK version is <code>polkadot-stable2609</code>. The node and runtime started from the SDK's
+solochain template.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="glossary"><a class="header" href="#glossary">Glossary</a></h1>
+<p><strong>Aura</strong>: The Polkadot SDK's block-production method. Validators take turns, one per time slot.</p>
+<p><strong>BLAKE2b</strong>: The hash function Polkadot SDK chains use. Canggu derives account addresses from ML-DSA public keys with it.</p>
+<p><strong>BLS12-381</strong>: An elliptic curve used by Groth16 proofs. It is not safe against quantum computers.</p>
+<p><strong>Commitment</strong>: A hash that fixes a value without showing it. Sealed ordering uses commitments to fix the order before contents are known.</p>
+<p><strong>CUDA</strong>: NVIDIA's GPU programming system. Not used here; the Metal backend is Apple's equivalent.</p>
+<p><strong>DAG (directed acyclic graph)</strong>: A set of items with "comes after" arrows and no loops. Transactions with dependencies form one.</p>
+<p><strong>Deterministic</strong>: Always giving the same output for the same input. Runtimes must be deterministic so every validator agrees.</p>
+<p><strong>Extrinsic</strong>: The Polkadot SDK's word for a transaction (or other data put into a block from outside).</p>
+<p><strong>Finality</strong>: The point after which a block can never be undone.</p>
+<p><strong>FRAME</strong>: The Polkadot SDK's framework for building runtimes out of pallets.</p>
+<p><strong>GRANDPA</strong>: The Polkadot SDK's finality protocol. Validators vote; a block with votes from more than two-thirds of them is final.</p>
+<p><strong>Groth16</strong>: A zero-knowledge proof system with very small proofs (192 bytes) and a trusted setup. Not quantum-safe.</p>
+<p><strong>Host function</strong>: A function the node provides to the runtime. The runtime calls it; the node runs it as native code.</p>
+<p><strong>Intent</strong>: In Canggu, a transfer signed off-chain and submitted in a batch by a relayer.</p>
+<p><strong>Keccak / SHAKE</strong>: A family of hash functions. ML-DSA uses SHAKE heavily; SP1 has a fast built-in (precompile) for it.</p>
+<p><strong>MEV (maximal extractable value)</strong>: Profit a block producer can make by choosing, adding or reordering transactions, for example front-running.</p>
+<p><strong>Metal</strong>: Apple's GPU programming interface.</p>
+<p><strong>ML-DSA (FIPS 204)</strong>: The NIST post-quantum signature standard, formerly CRYSTALS-Dilithium. Canggu uses the ML-DSA-65 parameter set.</p>
+<p><strong>ML-KEM (FIPS 203)</strong>: The NIST post-quantum key-exchange standard, formerly CRYSTALS-Kyber. It cannot sign.</p>
+<p><strong>Nonce</strong>: A counter per account. Each transaction uses the next number, so it cannot be replayed.</p>
+<p><strong>Pallet</strong>: A module of a FRAME runtime, with its own storage, calls and events.</p>
+<p><strong>Parachain</strong>: A chain that gets its security from Polkadot's relay chain. Canggu is not one; it is a standalone chain.</p>
+<p><strong>Post-quantum</strong>: Believed to stay secure against large quantum computers.</p>
+<p><strong>Precompile</strong>: A built-in, accelerated operation in a virtual machine (here, Keccak in SP1).</p>
+<p><strong>Relayer</strong>: Someone who submits other people's signed data (intents, commitments) and pays the fee.</p>
+<p><strong>Runtime</strong>: The chain's rules, compiled to WebAssembly and stored on-chain.</p>
+<p><strong>Shor's algorithm</strong>: A quantum algorithm that breaks the elliptic-curve and factoring problems behind today's signatures.</p>
+<p><strong>SP1</strong>: A zkVM by Succinct Labs that proves Rust programs compiled to RISC-V.</p>
+<p><strong>STARK</strong>: A family of proof systems that use only hash functions. No trusted setup; plausibly post-quantum; large proofs.</p>
+<p><strong>Transaction extension</strong>: A check that runs before and after every transaction (nonce, fee, mortality (era), and Canggu's dependency check).</p>
+<p><strong>Weight</strong>: The Polkadot SDK's measure of execution time. Blocks have a weight limit; fees follow weight.</p>
+<p><strong>zkVM</strong>: A zero-knowledge virtual machine: it proves that a normal program ran correctly.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="references"><a class="header" href="#references">References</a></h1>
+<h2 id="canggu"><a class="header" href="#canggu">Canggu</a></h2>
+<ul>
+<li>D. Suhubdy, T. Singh, M. Dhawan, M. Sonkeng (Bitwyre). <em>Canggu Blockchain: A Quantum-Secure,
+MEV-Resistant Blockchain for Parallel Computing</em>, whitepaper v1.3, 2025.
+<a href="https://github.com/agustinustheo/canggu-blockchain-whitepaper">Source and PDF</a>.</li>
+<li><em>Canggu on the Polkadot SDK</em>, whitepaper v2.0 (Polkadot SDK edition), describing this code.
+<a href="https://github.com/agustinustheo/canggu-blockchain-whitepaper/blob/main/v2/main.pdf"><code>v2/main.pdf</code></a>.</li>
+<li>Code: <a href="https://github.com/agustinustheo/canggu-blockchain">github.com/agustinustheo/canggu-blockchain</a>.</li>
+</ul>
+<h2 id="related-work-by-the-original-authors"><a class="header" href="#related-work-by-the-original-authors">Related work by the original authors</a></h2>
+<ul>
+<li>D. Suhubdy (Bitwyre), A. Mohammed (Zeroknowledge Consulting Ltd). <em>Randprotocol: Confidential
+Arbitrary Computations</em>, Draft 3, August 2026.
+<a href="http://randprotocol.org/papers/randprotocol.pdf">randprotocol.org/papers/randprotocol.pdf</a>.</li>
+<li>D. Suhubdy. Rand Protocol full node,
+<a href="https://github.com/randprotocol/fullnode">github.com/randprotocol/fullnode</a>.</li>
+</ul>
+<h2 id="standards"><a class="header" href="#standards">Standards</a></h2>
+<ul>
+<li>NIST FIPS 204, <em>Module-Lattice-Based Digital Signature Standard</em> (ML-DSA), 2024.</li>
+<li>NIST FIPS 203, <em>Module-Lattice-Based Key-Encapsulation Mechanism Standard</em> (ML-KEM), 2024.</li>
+<li>NIST FIPS 205, <em>Stateless Hash-Based Digital Signature Standard</em> (SLH-DSA), 2024.</li>
+<li>NIST SP 800-208, <em>Recommendation for Stateful Hash-Based Signature Schemes</em> (XMSS, LMS), 2020.</li>
+<li>ASD-STE100, <em>Simplified Technical English</em>, ASD.</li>
+</ul>
+<h2 id="papers"><a class="header" href="#papers">Papers</a></h2>
+<ul>
+<li>J. Groth. <em>On the Size of Pairing-Based Non-interactive Arguments</em>. EUROCRYPT 2016.</li>
+<li>M. Albrecht, L. Grassi, C. Rechberger, A. Roy, T. Tiessen. <em>MiMC: Efficient Encryption and
+Cryptographic Hashing with Minimal Multiplicative Complexity</em>. ASIACRYPT 2016.</li>
+<li>E. Ben-Sasson, I. Bentov, Y. Horesh, M. Riabzev. <em>Scalable, transparent, and post-quantum secure
+computational integrity</em>. Cryptology ePrint 2018/046.</li>
+<li>A. Stewart, E. Kokoris-Kogia. <em>GRANDPA: a Byzantine Finality Gadget</em>. arXiv:2007.01560.</li>
+<li>P. Shor. <em>Algorithms for quantum computation: discrete logarithms and factoring</em>. FOCS 1994.</li>
+<li>L. Grover. <em>A fast quantum mechanical algorithm for database search</em>. STOC 1996.</li>
+<li>P. Daian et al. <em>Flash Boys 2.0: Frontrunning, Transaction Reordering, and Consensus Instability
+in Decentralized Exchanges</em>. IEEE S&amp;P 2020.</li>
+<li>M. Kelkar, F. Zhang, S. Goldfeder, A. Juels. <em>Order-Fairness for Byzantine Consensus</em>. CRYPTO 2020.</li>
+<li>J. Bebel, D. Ojha. <em>Ferveo: Threshold Decryption for Mempool Privacy in BFT networks</em>. Cryptology
+ePrint 2022/898.</li>
+<li>G. Wood. <em>JAM: Join-Accumulate Machine</em> (the Gray Paper). 2024.</li>
+</ul>
+<h2 id="software-1"><a class="header" href="#software-1">Software</a></h2>
+<ul>
+<li><a href="https://github.com/paritytech/polkadot-sdk">Polkadot SDK</a> (release <code>polkadot-stable2609</code>)</li>
+<li><a href="https://crates.io/crates/ml-dsa"><code>ml-dsa</code></a> (RustCrypto)</li>
+<li><a href="https://arkworks.rs">arkworks</a></li>
+<li><a href="https://github.com/succinctlabs/sp1">SP1</a> (v6.10.0)</li>
+<li><a href="https://github.com/madsmtm/objc2"><code>objc2-metal</code></a></li>
+<li><a href="https://github.com/paritytech/verifiable"><code>verifiable</code></a> (evaluated, not used)</li>
+<li><a href="https://github.com/rust-lang/mdBook">mdBook</a></li>
+</ul>
+<p>See <a href="appendix/../credits.html">Credits and authorship</a> for who made each of these.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="about-these-docs"><a class="header" href="#about-these-docs">About these docs</a></h1>
+<h2 id="who-wrote-them"><a class="header" href="#who-wrote-them">Who wrote them</a></h2>
+<p>This book was written by Claude, an AI model made by Anthropic, at the request of
+<a href="https://github.com/agustinustheo">agustinustheo</a>, who reviewed and published it. It describes code
+that Claude also wrote, based on the Canggu design by Dendi Suhubdy, Tejveer Singh, Mitul Dhawan and
+Maldini Sonkeng. See <a href="appendix/../credits.html">Credits and authorship</a>.</p>
+<p>Every performance number of this project comes from a measurement on the hardware described in
+<a href="appendix/../results/numbers.html">All the numbers</a>. Numbers about other projects (for example Rand
+Protocol's proving times) are quoted from their documents, and configuration limits (for example
+"at most 8 parents") come from the code. If you find a number that you cannot reproduce, or a
+claim that is wrong, please open an issue on the
+<a href="https://github.com/agustinustheo/canggu-blockchain/issues">repository</a>.</p>
+<h2 id="how-the-text-is-written"><a class="header" href="#how-the-text-is-written">How the text is written</a></h2>
+<ul>
+<li><strong>Explanations</strong> use plain English. Each chapter starts with an "In plain words" section and
+only then goes into detail.</li>
+<li><strong>Procedures, warnings and cautions</strong> use <strong>ASD-STE100 Simplified Technical English</strong>. STE is a
+controlled language from aerospace maintenance manuals. It uses short sentences, one
+instruction per step, the imperative ("Run", "Make sure that"), and a restricted vocabulary.
+That makes instructions hard to misread, including for readers whose first language is not
+English. You find it in the <a href="appendix/../getting-started/requirements.html">Run it yourself</a> chapters and
+in the <strong>WARNING</strong> and <strong>CAUTION</strong> notes.</li>
+</ul>
+<p>STE is not used everywhere: it is designed for instructions, and explanations read better in
+normal English.</p>
+<h2 id="build-this-book"><a class="header" href="#build-this-book">Build this book</a></h2>
+<ol>
+<li>Install mdBook:
+<pre><code class="language-bash">cargo install mdbook --version 0.4.52
+</code></pre>
+</li>
+<li>Build and open the book:
+<pre><code class="language-bash">mdbook serve docs --open
+</code></pre>
+</li>
+</ol>
+<p>The published version is at
+<a href="https://agustinustheodorus.com/canggu-blockchain/">agustinustheodorus.com/canggu-blockchain</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

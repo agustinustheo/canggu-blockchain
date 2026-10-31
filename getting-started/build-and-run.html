@@ -1,0 +1,350 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Build and start a chain - Canggu on the Polkadot SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="How far can the Polkadot SDK go? A research rebuild of the Canggu blockchain design: post-quantum accounts, zero-knowledge proofs (including a zkVM), GPU verification, MEV mitigation and fast finality, explained for newcomers.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Canggu on the Polkadot SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/agustinustheo/canggu-blockchain" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/agustinustheo/canggu-blockchain/edit/main/docs/src/getting-started/build-and-run.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="build-and-start-a-chain"><a class="header" href="#build-and-start-a-chain">Build and start a chain</a></h1>
+<blockquote>
+<p><strong>WARNING:</strong> The development chain uses well-known test keys (<code>//Alice</code>, <code>//Bob</code> and others).
+Anyone can sign with these keys. Do not use this chain or these keys for real value.</p>
+</blockquote>
+<h2 id="get-the-code"><a class="header" href="#get-the-code">Get the code</a></h2>
+<ol>
+<li>Clone the repository:
+<pre><code class="language-bash">git clone https://github.com/agustinustheo/canggu-blockchain.git
+cd canggu-blockchain
+</code></pre>
+</li>
+</ol>
+<h2 id="build-the-node-and-the-wallet"><a class="header" href="#build-the-node-and-the-wallet">Build the node and the wallet</a></h2>
+<ol>
+<li>Build in release mode:
+<pre><code class="language-bash">cargo build --release
+</code></pre>
+</li>
+<li>Wait for the build to complete. The first build takes approximately 10 to 20 minutes.</li>
+<li>Make sure that these two files exist:
+<ul>
+<li><code>target/release/canggu-node</code> (the blockchain node)</li>
+<li><code>target/release/canggu</code> (the command-line wallet)</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p><strong>NOTE:</strong> The build also compiles the runtime to WebAssembly. That step uses the
+<code>wasm32v1-none</code> target, which <code>rust-toolchain.toml</code> installs.</p>
+</blockquote>
+<h2 id="start-a-development-chain"><a class="header" href="#start-a-development-chain">Start a development chain</a></h2>
+<ol>
+<li>Open a terminal. Start one node:
+<pre><code class="language-bash">./target/release/canggu-node --dev --tmp
+</code></pre>
+</li>
+<li>Make sure that the log shows new blocks. A new block comes every 2 seconds:
+<pre><code class="language-text">🏆 Imported #1 (0x97ca…83db → 0xd151…ab2a)
+🏆 Imported #2 (0xd151…ab2a → 0x7704…ec82)
+</code></pre>
+</li>
+<li>Keep this terminal open.</li>
+</ol>
+<p>The <code>--tmp</code> option keeps the chain data in a temporary folder. The data is deleted when you stop
+the node.</p>
+<h3 id="use-the-apple-gpu-optional"><a class="header" href="#use-the-apple-gpu-optional">Use the Apple GPU (optional)</a></h3>
+<p>On a Mac with Apple silicon, the node can verify batches of signatures on the GPU.</p>
+<ol>
+<li>Stop the node with <strong>Ctrl+C</strong>.</li>
+<li>Start it again with the Metal backend:
+<pre><code class="language-bash">./target/release/canggu-node --dev --tmp --crypto-backend metal
+</code></pre>
+</li>
+<li>Make sure that the log shows the backend:
+<pre><code class="language-text">⚡ ML-DSA-65 batch verification backend: Metal (Apple M4 Pro), batches of 64+ signatures
+</code></pre>
+</li>
+</ol>
+<p>If the GPU self-test fails, the node does not start. This is intentional: a GPU that gives a
+different answer from the CPU would cause the node to disagree with the other validators.</p>
+<h2 id="run-the-demonstration"><a class="header" href="#run-the-demonstration">Run the demonstration</a></h2>
+<ol>
+<li>Open a second terminal in the repository folder.</li>
+<li>Run the demonstration:
+<pre><code class="language-bash">./target/release/canggu demo
+</code></pre>
+</li>
+<li>Wait approximately one minute. The demonstration sends transactions and waits for blocks.</li>
+<li>Make sure that the last line is:
+<pre><code class="language-text">All Canggu features exercised successfully.
+</code></pre>
+</li>
+</ol>
+<p>The demonstration does these seven steps. Each step is explained in a later chapter.</p>
+<div class="table-wrapper"><table><thead><tr><th>Step</th><th>What it shows</th><th>Chapter</th></tr></thead><tbody>
+<tr><td>1</td><td>A transfer signed with ML-DSA-65 (5,345 bytes)</td><td><a href="../features/post-quantum-accounts.html">Post-quantum accounts</a></td></tr>
+<tr><td>2</td><td>A transaction that waits for another account's transaction</td><td><a href="../features/dag-ordering.html">Transactions that wait for each other</a></td></tr>
+<tr><td>3</td><td>A transaction with a tip is refused</td><td><a href="../features/dag-ordering.html#no-tips-no-priority-auction">Transactions that wait for each other</a></td></tr>
+<tr><td>4</td><td>One payroll transaction pays four people</td><td><a href="../features/payroll.html">Parallel payroll</a></td></tr>
+<tr><td>5</td><td>A Groth16 proof of a private payroll, checked on-chain</td><td><a href="../features/zk-proofs.html">Zero-knowledge proofs</a></td></tr>
+<tr><td>6</td><td>64 signed intents checked with one host call (on the GPU if enabled)</td><td><a href="../features/gpu.html">GPU verification</a></td></tr>
+<tr><td>7</td><td>Commit, reveal in reverse order, execute in canonical order</td><td><a href="../features/sealed-ordering.html">Sealed ordering</a></td></tr>
+</tbody></table>
+</div>
+<h2 id="stop-the-chain"><a class="header" href="#stop-the-chain">Stop the chain</a></h2>
+<ol>
+<li>Go to the terminal that runs the node.</li>
+<li>Push <strong>Ctrl+C</strong>.</li>
+</ol>
+<h2 id="run-two-validators"><a class="header" href="#run-two-validators">Run two validators</a></h2>
+<p>Two scripts start two validators (Alice and Bob) on the same computer.</p>
+<div class="table-wrapper"><table><thead><tr><th>Script</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>scripts/mixed-backends.sh</code></td><td>Alice verifies signatures on the GPU, Bob on one CPU core. The script shows that both keep the same blocks. It needs the Metal GPU. On other computers, set <code>ALICE_BACKEND=cpu-parallel</code>.</td></tr>
+<tr><td><code>scripts/finality.sh</code></td><td>It measures the time from a new block to its finalisation.</td></tr>
+</tbody></table>
+</div>
+<ol>
+<li>Make sure that no other node is running.</li>
+<li>Make sure that <code>curl</code> is installed. The scripts use it.</li>
+<li>Run a script from the repository folder:
+<pre><code class="language-bash">scripts/mixed-backends.sh 6 256
+</code></pre>
+</li>
+<li>Make sure that the output contains <code>identical</code>:
+<pre><code class="language-text">blocks 1..11: identical
+finalized: alice #11, bob #11
+</code></pre>
+</li>
+</ol>
+<blockquote>
+<p><strong>CAUTION:</strong> The two validators use the ports 30333, 30334, 9944 and 9945. Stop other
+programs that use these ports before you start a script.</p>
+</blockquote>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../getting-started/requirements.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../getting-started/cli.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../getting-started/requirements.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../getting-started/cli.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

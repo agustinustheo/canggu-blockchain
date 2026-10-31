@@ -1,0 +1,294 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Signature compression with a zkVM - Canggu on the Polkadot SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="How far can the Polkadot SDK go? A research rebuild of the Canggu blockchain design: post-quantum accounts, zero-knowledge proofs (including a zkVM), GPU verification, MEV mitigation and fast finality, explained for newcomers.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Canggu on the Polkadot SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/agustinustheo/canggu-blockchain" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/agustinustheo/canggu-blockchain/edit/main/docs/src/features/signature-compression.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="signature-compression-with-a-zkvm"><a class="header" href="#signature-compression-with-a-zkvm">Signature compression with a zkVM</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/pallets/pq-intents"><code>pallets/pq-intents/</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/sp1/programs/mldsa-batch"><code>sp1/programs/mldsa-batch</code></a></p>
+<h2 id="in-plain-words"><a class="header" href="#in-plain-words">In plain words</a></h2>
+<p>Post-quantum signatures are big: 5.3 kB of key and signature per transfer. That size, not CPU
+time, limits the chain to about 370 transfers per second.</p>
+<p><em>Signature compression</em> replaces many signatures with one proof that says "I checked all of these
+signatures, and they are all valid". The chain checks the proof instead of the signatures.</p>
+<p>It works. It is also the clearest example in this project of an idea that only pays off at scale.</p>
+<h2 id="step-1-intent-batches"><a class="header" href="#step-1-intent-batches">Step 1: intent batches</a></h2>
+<p><code>pallet-pq-intents</code> lets users sign <em>intents</em> off-chain ("pay 1 CGU to Bob, this is my intent
+number 3"). A relayer collects up to 640 of them and submits them in one transaction. The runtime
+checks all signatures with <strong>one</strong> host call:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn ml_dsa_65_batch_verify(items: Vec&lt;(public_key, message, signature)&gt;) -&gt; Vec&lt;bool&gt;;
+<span class="boring">}</span></code></pre></pre>
+<p>Each intent then succeeds or fails on its own (bad signature, wrong nonce, not enough balance).
+This one call is also where a GPU can help: see <a href="gpu.html">GPU verification</a>.</p>
+<h2 id="step-2-replace-the-signatures-with-one-sp1-proof"><a class="header" href="#step-2-replace-the-signatures-with-one-sp1-proof">Step 2: replace the signatures with one SP1 proof</a></h2>
+<p><code>sp1/programs/mldsa-batch</code> is a Rust program that verifies ML-DSA-65 signatures. It runs inside the
+SP1 zkVM, which produces a proof that the program ran correctly. The program:</p>
+<ol>
+<li>verifies every signature in the batch (if one is invalid, no proof can be made);</li>
+<li>outputs a digest: <code>n ‖ Keccak(context) ‖ Keccak(for each: account ‖ Keccak(message))</code>, where
+<code>account = BLAKE2b(public key)</code>.</li>
+</ol>
+<p><code>submit_compressed</code> then takes only <code>(sender, intent)</code> pairs and the proof: <strong>no keys and no
+signatures</strong>. The runtime rebuilds the digest from the intents and the chain's genesis hash, and
+asks the <code>sp1_v6_verify_compressed</code> host function whether the proof matches. Because the runtime
+computes the digest itself, the proof cannot be reused for other intents or on another chain.</p>
+<pre><code class="language-text">$ canggu intents --count 8 --senders 4 --compressed
+mldsa-batch proved: 5611080 cycles, 1272546 byte proof, 112.7 s
+  relayer submits 1.28 MB (one SP1 proof, no keys or signatures) instead of 0.04 MB
+  block #91: 8 intents executed, 0 rejected {}
+</code></pre>
+<p>The ML-DSA code inside SP1 gives the same answer as the <code>ml-dsa</code> crate on every test case (4,280
+native cases and 460 runs inside the zkVM). SP1's Keccak <em>precompile</em> (a built-in accelerator for
+the hash function that ML-DSA uses heavily) cuts the cost from 1.83 million to 0.70 million cycles
+per signature.</p>
+<h2 id="step-3-the-honest-numbers"><a class="header" href="#step-3-the-honest-numbers">Step 3: the honest numbers</a></h2>
+<div class="table-wrapper"><table><thead><tr><th></th><th></th></tr></thead><tbody>
+<tr><td>One proof, any batch size</td><td>1,272,546 bytes</td></tr>
+<tr><td>One ML-DSA key and signature</td><td>5,261 bytes</td></tr>
+<tr><td><strong>Break-even</strong></td><td><strong>about 242 signatures per proof</strong></td></tr>
+<tr><td>Proving time on the laptop CPU</td><td>about 9.4 s per signature (4 signatures: 72 s; 128 signatures: 1,219 s)</td></tr>
+<tr><td>Time to reach break-even</td><td>about 37 minutes</td></tr>
+<tr><td>Peak memory while proving</td><td>14–17 GB</td></tr>
+</tbody></table>
+</div>
+<p>So the 8-intent demonstration batch is <strong>30 times bigger</strong> than the signatures it replaces.
+Compression only wins with batches of hundreds of signatures, proven on GPUs. SP1's GPU prover
+needs NVIDIA (CUDA), which this laptop does not have.</p>
+<h2 id="the-bigger-design-this-points-to"><a class="header" href="#the-bigger-design-this-points-to">The bigger design this points to</a></h2>
+<p>Rand Protocol (a chain by Dendi Suhubdy) solves the same problem for its own, much larger proofs: GPU
+"aggregators" prove one proof over a window of already-finalised blocks, off the critical path, and
+are paid for it. That pipeline is what would make compression pay off here too. It is not built.
+See <a href="../results/rand-protocol.html">Lessons from Rand Protocol</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../features/zk-proofs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../features/payroll.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../features/zk-proofs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../features/payroll.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

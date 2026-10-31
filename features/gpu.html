@@ -1,0 +1,316 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>GPU verification with Apple Metal - Canggu on the Polkadot SDK</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="How far can the Polkadot SDK go? A research rebuild of the Canggu blockchain design: post-quantum accounts, zero-knowledge proofs (including a zkVM), GPU verification, MEV mitigation and fast finality, explained for newcomers.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Canggu on the Polkadot SDK</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/agustinustheo/canggu-blockchain" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/agustinustheo/canggu-blockchain/edit/main/docs/src/features/gpu.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="gpu-verification-with-apple-metal"><a class="header" href="#gpu-verification-with-apple-metal">GPU verification with Apple Metal</a></h1>
+<p><strong>Code:</strong> <a href="https://github.com/agustinustheo/canggu-blockchain/tree/main/gpu"><code>gpu/</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/blob/main/node/src/accel.rs"><code>node/src/accel.rs</code></a>,
+<a href="https://github.com/agustinustheo/canggu-blockchain/blob/main/primitives/src/accel.rs"><code>primitives/src/accel.rs</code></a></p>
+<h2 id="in-plain-words"><a class="header" href="#in-plain-words">In plain words</a></h2>
+<p>The Canggu whitepaper wants smart contracts that run on GPUs. That does not work on a chain whose
+execution must be deterministic and metered, for the reasons below. What <em>does</em> work is this: when a block contains hundreds of post-quantum
+signatures, a validator can check them all on its GPU, while another validator checks the same
+signatures on its CPU, and both always agree.</p>
+<p>That is what this project does, on the GPU of an Apple M4 Pro laptop through Apple's Metal API.</p>
+<h2 id="why-the-runtime-itself-cannot-run-on-a-gpu"><a class="header" href="#why-the-runtime-itself-cannot-run-on-a-gpu">Why the runtime itself cannot run on a GPU</a></h2>
+<ul>
+<li><strong>Every validator must get identical results, bit for bit.</strong> GPU floating-point maths and the
+order of parallel sums vary between GPU models and drivers.</li>
+<li><strong>Execution must be measured and limited</strong> (weights). A GPU kernel cannot be stopped halfway or
+measured per instruction.</li>
+<li><strong>The chain's state lives in a database tree</strong> that GPU code cannot reach.</li>
+<li><strong>Requiring one vendor's GPU</strong> would shut out every validator without one.</li>
+</ul>
+<h2 id="the-way-that-works-a-gpu-behind-a-host-function"><a class="header" href="#the-way-that-works-a-gpu-behind-a-host-function">The way that works: a GPU behind a host function</a></h2>
+<p>The runtime asks one question per batch: "which of these signatures are valid?" (the
+<code>ml_dsa_65_batch_verify</code> host function). The answer is a list of yes/no values, and it must be
+exactly the same however it is computed. The node chooses how to compute it when it starts:</p>
+<pre><code class="language-text">canggu-node --crypto-backend &lt;cpu | cpu-parallel | metal&gt;
+
+  cpu            reference implementation, 1 core        ← defines the correct answer
+  cpu-parallel   reference implementation, all cores     (default)
+  metal          ML-DSA-65 verification as Metal compute kernels
+                   CPU: decode, checks, hash the key and message, build the challenge
+                   GPU: NTTs → expand matrix A and multiply → UseHint → final SHAKE256 compare
+</code></pre>
+<p>Batches below 64 signatures go to the CPU, because sending work to the GPU has a fixed cost of
+about 0.2 ms.</p>
+<h2 id="how-we-know-it-is-correct"><a class="header" href="#how-we-know-it-is-correct">How we know it is correct</a></h2>
+<p>Correctness matters more than speed here: a GPU that disagreed with the CPU on one signature
+would make its validator reject valid blocks.</p>
+<ol>
+<li><strong>Three implementations agree.</strong> The Metal kernels, a pure-Rust copy of each kernel, and the
+RustCrypto <code>ml-dsa</code> crate were compared on <strong>5,454 cases</strong>: 2,504 valid signatures and 2,950
+damaged ones (flipped bits in every field, bad hints, edge values, wrong lengths and contexts).
+All three gave the same answer every time.</li>
+<li><strong>A self-test at start-up.</strong> The node checks the GPU's arithmetic against the CPU (including
+one step for <em>every</em> possible input) before it accepts the GPU. During development this test
+caught a deliberately planted bug that real signatures never trigger.</li>
+<li><strong>Two validators, two kinds of hardware.</strong> <code>scripts/mixed-backends.sh</code> runs Alice on the GPU and
+Bob on one CPU core. They take turns making blocks, so every batch is checked by the GPU on one
+validator and by the CPU on the other:</li>
+</ol>
+<pre><code class="language-text">#6:  authored by Alice (metal), imported by Bob (cpu)
+#7:  authored by Bob (cpu), imported by Alice (metal)
+#8:  authored by Alice (metal), imported by Bob (cpu)
+#9:  authored by Bob (cpu), imported by Alice (metal)
+#10: authored by Alice (metal), imported by Bob (cpu)
+#11: authored by Bob (cpu), imported by Alice (metal)
+blocks 1..11: identical
+finalized: alice #11, bob #11
+</code></pre>
+<h2 id="how-fast-it-is"><a class="header" href="#how-fast-it-is">How fast it is</a></h2>
+<p>Measured with <code>cargo run --release --bin bench</code> (medians, Apple M4 Pro). "GPU busy" is measured by
+Metal itself.</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Signatures in batch</th><th style="text-align: right">1 CPU core</th><th style="text-align: right">12 CPU cores</th><th style="text-align: right">Metal</th><th style="text-align: right">GPU busy</th><th style="text-align: right">Metal vs 12 cores</th></tr></thead><tbody>
+<tr><td style="text-align: right">1</td><td style="text-align: right">0.060 ms</td><td style="text-align: right">0.060 ms</td><td style="text-align: right">0.330 ms</td><td style="text-align: right">0.203 ms</td><td style="text-align: right">0.18×</td></tr>
+<tr><td style="text-align: right">64</td><td style="text-align: right">3.77 ms</td><td style="text-align: right">0.61 ms</td><td style="text-align: right">0.45 ms</td><td style="text-align: right">0.23 ms</td><td style="text-align: right">1.35×</td></tr>
+<tr><td style="text-align: right">256</td><td style="text-align: right">15.2 ms</td><td style="text-align: right">1.95 ms</td><td style="text-align: right">0.85 ms</td><td style="text-align: right">0.43 ms</td><td style="text-align: right">2.29×</td></tr>
+<tr><td style="text-align: right">1,024</td><td style="text-align: right">61.2 ms</td><td style="text-align: right">7.52 ms</td><td style="text-align: right">2.12 ms</td><td style="text-align: right">1.50 ms</td><td style="text-align: right">3.55×</td></tr>
+<tr><td style="text-align: right">4,096</td><td style="text-align: right">246 ms</td><td style="text-align: right">29.0 ms</td><td style="text-align: right">6.51 ms</td><td style="text-align: right">5.59 ms</td><td style="text-align: right"><strong>4.45×</strong> (630,000 signatures/s)</td></tr>
+</tbody></table>
+</div>
+<p>In a live node, 640 signatures took 8.4 ms with 4.1 ms of GPU time. That is slower than the
+benchmark, because the node copies the batch into the host function and, on this machine, a macOS
+background service was using the GPU at the same time.</p>
+<h2 id="limits"><a class="header" href="#limits">Limits</a></h2>
+<ul>
+<li><strong>Fees do not change.</strong> Weights are still charged at single-core CPU speed, because every
+validator must keep up, with or without a GPU. A GPU makes blocks faster to process; it does not
+raise the chain's limits.</li>
+<li><strong>Apple Metal only.</strong> An NVIDIA (CUDA) backend would plug into the same interface, with the same
+tests. It is not written.</li>
+<li><strong>Small batches lose.</strong> Below about 64 signatures the CPU is faster.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../features/payroll.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../features/finality.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../features/payroll.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../features/finality.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
