@@ -39,3 +39,6 @@
 .DS_Store
 zk-keys/
 proof.json
+
+# mdBook output (published to the gh-pages branch by scripts/publish-docs.sh)
+docs/book/
