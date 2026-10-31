@@ -1,0 +1,20 @@
+[book]
+title = "Canggu on the Polkadot SDK"
+description = "How far can the Polkadot SDK go? A research rebuild of the Canggu blockchain design: post-quantum accounts, zero-knowledge proofs (including a zkVM), GPU verification, MEV mitigation and fast finality, explained for newcomers."
+authors = ["Canggu design: Dendi Suhubdy, Tejveer Singh, Mitul Dhawan, Maldini Sonkeng", "Rebuild and docs: Claude (Anthropic), directed by agustinustheo"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+site-url = "/canggu-blockchain/"
+git-repository-url = "https://github.com/agustinustheo/canggu-blockchain"
+edit-url-template = "https://github.com/agustinustheo/canggu-blockchain/edit/main/docs/{path}"
+default-theme = "light"
+preferred-dark-theme = "navy"
+no-section-label = false
+
+[output.html.search]
+enable = true
